@@ -1,4 +1,4 @@
-package net.magnesiumbackend.core.route;
+package net.magnesiumbackend.processor.path;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -39,12 +39,12 @@ public final class CompiledPathTemplate {
     }
 
     /**
-     * Parses {@code template} and returns a cached, immutable {@link net.magnesiumbackend.core.route.CompiledPathTemplate}.
+     * Parses {@code template} and returns a cached, immutable {@link net.magnesiumbackend.processor.path.CompiledPathTemplate}.
      *
      * @param template the route template, e.g. {@code /users/{id}}
      * @throws IllegalArgumentException if the template is blank or does not start with {@code /}
      */
-    public static net.magnesiumbackend.core.route.CompiledPathTemplate compile(String template) {
+    public static net.magnesiumbackend.processor.path.CompiledPathTemplate compile(String template) {
         if (template == null || template.isBlank()) {
             throw new IllegalArgumentException("Path template must not be blank.");
         }
@@ -82,7 +82,7 @@ public final class CompiledPathTemplate {
             }
         }
 
-        return new net.magnesiumbackend.core.route.CompiledPathTemplate(
+        return new net.magnesiumbackend.processor.path.CompiledPathTemplate(
             template,
             literals.toArray(new String[0]),
             varNames.toArray(new String[0]),

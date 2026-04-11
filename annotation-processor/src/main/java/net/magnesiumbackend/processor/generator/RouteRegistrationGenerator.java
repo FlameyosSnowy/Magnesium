@@ -26,7 +26,7 @@ import net.magnesiumbackend.core.annotations.VerifySignature;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
 import net.magnesiumbackend.core.http.HttpMethod;
 import net.magnesiumbackend.core.http.exceptions.BadRequestException;
-import net.magnesiumbackend.core.route.CompiledPathTemplate;
+import net.magnesiumbackend.processor.path.CompiledPathTemplate;
 import net.magnesiumbackend.core.route.RoutePathTemplate;
 import net.magnesiumbackend.core.registry.HttpRouteRegistry;
 import net.magnesiumbackend.core.registry.ServiceRegistry;
