@@ -1,7 +1,7 @@
 package net.magnesiumbackend.core.json;
 
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 
 import java.nio.charset.StandardCharsets;
 

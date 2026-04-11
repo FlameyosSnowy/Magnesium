@@ -1,7 +1,7 @@
 package net.magnesiumbackend.core.security;
 
-import net.magnesiumbackend.core.http.ErrorResponse;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ErrorResponse;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;

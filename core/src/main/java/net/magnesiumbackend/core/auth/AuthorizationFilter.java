@@ -1,13 +1,10 @@
 package net.magnesiumbackend.core.auth;
 
 import net.magnesiumbackend.core.annotations.enums.RequiresMode;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.Arrays;
 
 public final class AuthorizationFilter implements HttpFilter {
 

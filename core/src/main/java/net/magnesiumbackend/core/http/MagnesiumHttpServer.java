@@ -1,6 +1,8 @@
 package net.magnesiumbackend.core.http;
 
 import net.magnesiumbackend.core.WebSocketSessionManagerLoader;
+import net.magnesiumbackend.core.http.response.HttpMethod;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteBuilder;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;

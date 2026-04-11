@@ -1,8 +1,7 @@
-package net.magnesiumbackend.core.http;
+package net.magnesiumbackend.core.http.response;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 

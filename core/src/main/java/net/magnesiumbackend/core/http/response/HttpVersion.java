@@ -1,4 +1,4 @@
-package net.magnesiumbackend.core.http;
+package net.magnesiumbackend.core.http.response;
 
 public enum HttpVersion {
     HTTP_1_0,

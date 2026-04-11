@@ -1,7 +1,7 @@
 package net.magnesiumbackend.transport.netty;
 
 import io.netty.handler.codec.http.HttpVersion;
-import net.magnesiumbackend.core.http.HttpMethod;
+import net.magnesiumbackend.core.http.response.HttpMethod;
 import org.jetbrains.annotations.Contract;
 
 import java.util.Objects;
@@ -53,7 +53,7 @@ public final class NettyToMagnesiumBridge {
     }
 
     @Contract(pure = true)
-    public static HttpVersion asNettyVersion(net.magnesiumbackend.core.http.HttpVersion version) {
+    public static HttpVersion asNettyVersion(net.magnesiumbackend.core.http.response.HttpVersion version) {
         Objects.requireNonNull(version, "HttpVersion must not be null.");
         return switch (version) {
             case HTTP_1_0 -> HttpVersion.HTTP_1_0;
@@ -66,10 +66,10 @@ public final class NettyToMagnesiumBridge {
     }
 
     @Contract(pure = true)
-    public static net.magnesiumbackend.core.http.HttpVersion asMagnesiumVersion(HttpVersion version) {
+    public static net.magnesiumbackend.core.http.response.HttpVersion asMagnesiumVersion(HttpVersion version) {
         Objects.requireNonNull(version, "Netty HttpVersion must not be null.");
-        if (version == HttpVersion.HTTP_1_0) return net.magnesiumbackend.core.http.HttpVersion.HTTP_1_0;
-        if (version == HttpVersion.HTTP_1_1) return net.magnesiumbackend.core.http.HttpVersion.HTTP_1_1;
+        if (version == HttpVersion.HTTP_1_0) return net.magnesiumbackend.core.http.response.HttpVersion.HTTP_1_0;
+        if (version == HttpVersion.HTTP_1_1) return net.magnesiumbackend.core.http.response.HttpVersion.HTTP_1_1;
         throw new IllegalArgumentException("Unsupported Netty HttpVersion: " + version);
     }
 
@@ -78,7 +78,7 @@ public final class NettyToMagnesiumBridge {
      * Use this instead of asMagnesiumVersion() in Http2ServerHandler.
      */
     @Contract(pure = true)
-    public static net.magnesiumbackend.core.http.HttpVersion http2Version() {
-        return net.magnesiumbackend.core.http.HttpVersion.HTTP_2_0;
+    public static net.magnesiumbackend.core.http.response.HttpVersion http2Version() {
+        return net.magnesiumbackend.core.http.response.HttpVersion.HTTP_2_0;
     }
 }

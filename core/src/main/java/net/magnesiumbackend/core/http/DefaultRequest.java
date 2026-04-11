@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http;
 
+import net.magnesiumbackend.core.http.response.HttpMethod;
+import net.magnesiumbackend.core.http.response.HttpVersion;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.headers.Slice;

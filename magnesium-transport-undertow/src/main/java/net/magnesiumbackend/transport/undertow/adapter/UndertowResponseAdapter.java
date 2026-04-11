@@ -3,7 +3,7 @@ package net.magnesiumbackend.transport.undertow.adapter;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
-import net.magnesiumbackend.core.http.HttpResponseAdapter;
+import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import java.io.IOException;
 

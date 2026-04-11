@@ -2,10 +2,9 @@ package net.magnesiumbackend.core.json;
 
 import com.dslplatform.json.DslJson;
 import com.dslplatform.json.JsonWriter;
-import com.dslplatform.json.JsonReader;
 import com.dslplatform.json.runtime.Settings;
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

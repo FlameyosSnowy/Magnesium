@@ -175,7 +175,7 @@ public class RouteManifestGenerator {
         TypeElement requestCtx = elements.getTypeElement(
             "net.magnesiumbackend.core.route.RequestContext");
         TypeElement responseEl = elements.getTypeElement(
-            "net.magnesiumbackend.core.http.ResponseEntity");
+            "net.magnesiumbackend.core.http.response.ResponseEntity");
 
         for (VariableElement param : method.getParameters()) {
             TypeMirror t = param.asType();

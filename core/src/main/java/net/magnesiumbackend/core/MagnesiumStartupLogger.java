@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core;
 
-import net.magnesiumbackend.core.http.HttpMethod;
+import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteTree;
 import org.slf4j.Logger;

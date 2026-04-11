@@ -17,7 +17,7 @@ public final class InMemoryIdempotencyStore implements IdempotencyStore {
 
     private record Entry(StoredResponse<?> response, Instant expiresAt) {}
 
-    private final ConcurrentHashMap<String, Entry> store = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Entry> store = new ConcurrentHashMap<>(32);
 
     public InMemoryIdempotencyStore() {
         SCHEDULED_EXECUTOR_SERVICE.scheduleAtFixedRate(this::evict, 5, 5, TimeUnit.MINUTES);

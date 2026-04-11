@@ -52,7 +52,7 @@ public class ExceptionHandlerRegistrationGenerator {
         this.messager = messager;
 
         this.throwableTypeElement      = elements.getTypeElement("java.lang.Throwable");
-        this.responseTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.http.ResponseEntity");
+        this.responseTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.http.response.ResponseEntity");
         this.requestTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.route.RequestContext");
         this.serviceRegistryTypeElement = elements.getTypeElement("net.magnesiumbackend.core.services.ServiceRegistry");
     }

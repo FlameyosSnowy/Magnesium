@@ -1,6 +1,5 @@
-package net.magnesiumbackend.core.http;
+package net.magnesiumbackend.core.http.response;
 
-import net.magnesiumbackend.core.http.messages.MessageConverter;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import org.jetbrains.annotations.NotNull;
 

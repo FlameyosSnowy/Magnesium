@@ -1,7 +1,7 @@
 package net.magnesiumbackend.core.route;
 
-import net.magnesiumbackend.core.http.HttpMethod;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.HttpMethod;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 
 import java.util.List;

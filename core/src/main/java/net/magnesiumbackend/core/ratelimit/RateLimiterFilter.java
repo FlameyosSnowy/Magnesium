@@ -1,8 +1,8 @@
 package net.magnesiumbackend.core.ratelimit;
 
 import net.magnesiumbackend.core.auth.Principal;
-import net.magnesiumbackend.core.http.ErrorResponse;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ErrorResponse;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;

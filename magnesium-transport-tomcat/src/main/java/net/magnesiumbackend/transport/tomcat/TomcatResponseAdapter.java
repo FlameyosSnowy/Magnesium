@@ -1,6 +1,6 @@
 package net.magnesiumbackend.transport.tomcat;
 
-import net.magnesiumbackend.core.http.HttpResponseAdapter;
+import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.http;
 
 import net.magnesiumbackend.core.http.exceptions.HttpException;
+import net.magnesiumbackend.core.http.response.HttpStatusCode;
 
 public final class HttpExceptionMapper {
 

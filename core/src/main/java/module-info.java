@@ -40,4 +40,5 @@ module core {
     exports net.magnesiumbackend.core.security;
     exports net.magnesiumbackend.core.headers;
     exports net.magnesiumbackend.core.utils;
+    exports net.magnesiumbackend.core.http.response;
 }

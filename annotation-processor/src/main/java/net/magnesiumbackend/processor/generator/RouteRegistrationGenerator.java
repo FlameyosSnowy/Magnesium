@@ -24,7 +24,7 @@ import net.magnesiumbackend.core.annotations.TracesMapping;
 import net.magnesiumbackend.core.annotations.ApplicationConfiguration;
 import net.magnesiumbackend.core.annotations.VerifySignature;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
-import net.magnesiumbackend.core.http.HttpMethod;
+import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.exceptions.BadRequestException;
 import net.magnesiumbackend.processor.path.CompiledPathTemplate;
 import net.magnesiumbackend.core.route.RoutePathTemplate;
@@ -72,7 +72,7 @@ public class RouteRegistrationGenerator {
 
         this.requestTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.route.RequestContext");
         this.wrongRequestTypeElement  = elements.getTypeElement("net.magnesiumbackend.core.http.Request");
-        this.responseTypeElement      = elements.getTypeElement("net.magnesiumbackend.core.http.ResponseEntity");
+        this.responseTypeElement      = elements.getTypeElement("net.magnesiumbackend.core.http.response.ResponseEntity");
         this.routeRegistryTypeElement = elements.getTypeElement("net.magnesiumbackend.core.route.HttpRouteRegistry");
         this.throwableTypeElement     = elements.getTypeElement("java.lang.Throwable");
         this.stringTypeElement        = elements.getTypeElement("java.lang.String");

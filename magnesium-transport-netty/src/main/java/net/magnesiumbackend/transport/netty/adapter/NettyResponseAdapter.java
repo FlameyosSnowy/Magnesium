@@ -3,7 +3,7 @@ package net.magnesiumbackend.transport.netty.adapter;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import net.magnesiumbackend.core.http.HttpResponseAdapter;
+import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 public class NettyResponseAdapter implements HttpResponseAdapter {
 

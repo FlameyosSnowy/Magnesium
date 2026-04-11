@@ -1,7 +1,7 @@
 package net.magnesiumbackend.core.auth;
 
 import net.magnesiumbackend.core.auth.exceptions.AuthenticationException;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.*;
 import java.util.List;
 

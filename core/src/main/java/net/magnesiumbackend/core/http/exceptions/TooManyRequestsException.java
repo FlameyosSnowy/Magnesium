@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.http.exceptions;
 
-import net.magnesiumbackend.core.http.HttpStatusCode;
+import net.magnesiumbackend.core.http.response.HttpStatusCode;
 
 public class TooManyRequestsException extends HttpExceptionBase {
 

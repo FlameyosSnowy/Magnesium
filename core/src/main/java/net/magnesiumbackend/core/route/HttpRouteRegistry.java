@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.route;
 
-import net.magnesiumbackend.core.http.HttpMethod;
+import net.magnesiumbackend.core.http.response.HttpMethod;
 
 import java.util.Collections;
 import java.util.EnumMap;

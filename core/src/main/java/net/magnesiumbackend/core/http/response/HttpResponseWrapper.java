@@ -1,4 +1,4 @@
-package net.magnesiumbackend.core.http;
+package net.magnesiumbackend.core.http.response;
 
 import net.magnesiumbackend.core.http.exceptions.HttpExceptionBase;
 

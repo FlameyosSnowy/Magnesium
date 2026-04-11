@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.http.messages;
 
-import net.magnesiumbackend.core.http.HttpResponseAdapter;
+import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import java.io.IOException;
 

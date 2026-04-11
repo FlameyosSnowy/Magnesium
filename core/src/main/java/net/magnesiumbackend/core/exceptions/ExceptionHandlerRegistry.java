@@ -2,7 +2,7 @@ package net.magnesiumbackend.core.exceptions;
 
 import io.github.flameyossnowy.velocis.tables.ConcurrentHashTable;
 import io.github.flameyossnowy.velocis.tables.Table;
-import net.magnesiumbackend.core.http.ResponseEntity;
+import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.RequestContext;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteExceptionHandler;

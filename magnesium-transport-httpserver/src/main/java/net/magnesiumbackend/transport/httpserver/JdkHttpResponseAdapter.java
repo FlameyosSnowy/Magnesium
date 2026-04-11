@@ -1,10 +1,9 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpExchange;
-import net.magnesiumbackend.core.http.HttpResponseAdapter;
+import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 public class JdkHttpResponseAdapter implements HttpResponseAdapter {
 
