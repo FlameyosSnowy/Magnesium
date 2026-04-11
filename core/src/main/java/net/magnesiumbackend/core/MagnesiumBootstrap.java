@@ -1,0 +1,67 @@
+package net.magnesiumbackend.core;
+
+import net.magnesiumbackend.core.annotations.service.GeneratedEmitProxyClass;
+import net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
+import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
+import net.magnesiumbackend.core.annotations.service.GeneratedSubscriberClass;
+import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
+
+import java.util.List;
+import java.util.ServiceLoader;
+
+public record MagnesiumBootstrap(
+    List<GeneratedSubscriberClass> subscribers,
+    List<GeneratedEmitProxyClass> emitProxies,
+    List<GeneratedExceptionHandlerClass> exceptionHandlers,
+    List<GeneratedRouteRegistrationClass> routes,
+    List<GeneratedWebSocketRegistrationClass> webSockets
+) {
+
+    public static MagnesiumBootstrap load() {
+        return new MagnesiumBootstrap(
+            loadAll(GeneratedSubscriberClass.class),
+            loadAll(GeneratedEmitProxyClass.class),
+            loadAll(GeneratedExceptionHandlerClass.class),
+            loadAll(GeneratedRouteRegistrationClass.class),
+            loadAll(GeneratedWebSocketRegistrationClass.class)
+        );
+    }
+
+    private static <T> List<T> loadAll(Class<T> type) {
+        return ServiceLoader.load(type)
+            .stream()
+            .map(ServiceLoader.Provider::get)
+            .toList();
+    }
+
+    public void apply(MagnesiumApplication app) {
+        var services = app.serviceRegistry();
+        var eventBus = app.eventBus();
+
+        // Subscribers
+        for (var s : subscribers) {
+            s.register(app, services, eventBus.subscribeRegistry());
+        }
+
+        // Emit proxies
+        for (var e : emitProxies) {
+            Object proxy = e.create(app, services, eventBus.emitRegistry());
+            services.replaceInstance(e.serviceType(), proxy);
+        }
+
+        // Exception handlers
+        for (var ex : exceptionHandlers) {
+            ex.register(app, services);
+        }
+
+        // Routes
+        for (var r : routes) {
+            r.register(app, services, app.httpServer().routes());
+        }
+
+        // WebSockets
+        for (var ws : webSockets) {
+            ws.register(app, services, app.httpServer().webSocketRouteRegistry());
+        }
+    }
+}

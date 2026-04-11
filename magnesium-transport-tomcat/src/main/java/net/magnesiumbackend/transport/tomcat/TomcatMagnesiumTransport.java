@@ -1,0 +1,115 @@
+package net.magnesiumbackend.transport.tomcat;
+
+import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.http.MagnesiumTransport;
+import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.security.SslConfig;
+import org.apache.catalina.Context;
+import org.apache.catalina.LifecycleException;
+import org.apache.catalina.connector.Connector;
+import org.apache.catalina.startup.Tomcat;
+import org.apache.tomcat.websocket.server.WsSci;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+
+import jakarta.servlet.ServletContext;
+import jakarta.websocket.server.ServerContainer;
+
+public class TomcatMagnesiumTransport implements MagnesiumTransport {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TomcatMagnesiumTransport.class);
+    private Tomcat tomcat;
+
+    @Override
+    public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
+        tomcat = new Tomcat();
+        tomcat.setBaseDir(System.getProperty("java.io.tmpdir"));
+
+        SslConfig sslConfig = application.sslConfig();
+        Connector connector = new Connector();
+        connector.setPort(port);
+
+        if (sslConfig != null) {
+            try {
+                TomcatSslAdapter.applyTo(sslConfig, connector);
+            } catch (IOException e) {
+                throw new IllegalStateException("[Magnesium] Failed to write SSL keystore to temp file, check disk space and write permissions.", e);
+            } catch (CertificateException e) {
+                throw new IllegalStateException("[Magnesium] SSL certificate is invalid or could not be serialized.", e);
+            } catch (KeyStoreException e) {
+                throw new IllegalStateException("[Magnesium] SSL keystore is invalid or unsupported format.", e);
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException("[Magnesium] SSL algorithm unavailable on this JVM, is a security provider missing?", e);
+            }
+        } else {
+            connector.setScheme("http");
+        }
+
+        tomcat.getService().addConnector(connector);
+
+        Context context = tomcat.addContext("", new File(".").getAbsolutePath());
+
+        context.addServletContainerInitializer(new WsSci(), null);
+
+        MagnesiumTomcatServlet servlet = new MagnesiumTomcatServlet(
+            routes,
+            application.httpServer().globalFilters(),
+            application.exceptionHandlerRegistry(),
+            application.messageConverterRegistry(),
+            application.securityHeadersFilter()
+        );
+        tomcat.addServlet("", "magnesiumServlet", servlet);
+        context.addServletMappingDecoded("/*", "magnesiumServlet");
+
+        try {
+            tomcat.start();
+
+            initializeWebSockets(context, application);
+
+            application.onStart().accept(application.serviceRegistry());
+            application.shutdownLatch().await();
+        } catch (LifecycleException e) {
+            throw new IllegalStateException("[Magnesium] Tomcat failed to start.", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void initializeWebSockets(Context context, MagnesiumApplication application) {
+        ServletContext servletContext = context.getServletContext();
+        ServerContainer serverContainer = (ServerContainer) servletContext
+            .getAttribute("jakarta.websocket.server.ServerContainer");
+
+        if (serverContainer == null) {
+            LOGGER.warn("[Magnesium] WebSocket ServerContainer not available, WebSocket routes will not be registered.");
+            return;
+        }
+
+        try {
+            new TomcatWebSocketInitializer(
+                application.httpServer().webSocketRouteRegistry(),
+                application.httpServer().webSocketSessionManager()
+            ).initialize(serverContainer);
+        } catch (Exception e) {
+            throw new IllegalStateException("[Magnesium] Failed to register WebSocket routes.", e);
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        if (tomcat != null) {
+            try {
+                tomcat.stop();
+                tomcat.destroy();
+            } catch (LifecycleException e) {
+                LOGGER.error("Error shutting down Tomcat", e);
+            }
+        }
+    }
+}

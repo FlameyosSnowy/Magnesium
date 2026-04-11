@@ -1,0 +1,10 @@
+package net.magnesiumbackend.core.http;
+
+import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+
+public interface MagnesiumTransport {
+    void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes);
+
+    void shutdown();
+}
