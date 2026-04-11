@@ -2,15 +2,14 @@ package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
-import net.magnesiumbackend.core.http.socket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import robaho.net.httpserver.websockets.CloseCode;
 import robaho.net.httpserver.websockets.OpCode;
 import robaho.net.httpserver.websockets.WebSocket;
-import robaho.net.httpserver.websockets.WebSocketException;
 import robaho.net.httpserver.websockets.WebSocketFrame;
 
 import java.io.IOException;

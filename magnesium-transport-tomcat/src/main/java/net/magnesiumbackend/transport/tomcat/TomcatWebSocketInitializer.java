@@ -1,9 +1,9 @@
 package net.magnesiumbackend.transport.tomcat;
 
 import jakarta.websocket.server.ServerEndpointConfig;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketRouteRegistry;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.route.RouteTree;
 
 import jakarta.websocket.DeploymentException;

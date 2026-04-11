@@ -1,8 +1,8 @@
 package net.magnesiumbackend.core.annotations.service;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
-import net.magnesiumbackend.core.registry.SubscribeRegistry;
+import net.magnesiumbackend.core.services.ServiceRegistry;
+import net.magnesiumbackend.core.event.SubscribeRegistry;
 
 /**
  * Implemented by every class the annotation processor generates for a
@@ -22,7 +22,7 @@ public interface GeneratedSubscriberClass {
      *
      * @param application       the running application
      * @param serviceRegistry   used to resolve constructor dependencies
-     * @param subscribeRegistry destination registry for the listener entries
+     * @param subscribeRegistry destination services for the listener entries
      */
     void register(
         MagnesiumApplication application,

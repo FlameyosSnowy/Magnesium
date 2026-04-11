@@ -1,7 +1,6 @@
 package net.magnesiumbackend.core;
 
-import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
 import java.util.List;
 import java.util.Optional;

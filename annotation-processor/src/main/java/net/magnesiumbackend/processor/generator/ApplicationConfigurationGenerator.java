@@ -8,7 +8,7 @@ import com.palantir.javapoet.TypeSpec;
 import net.magnesiumbackend.core.annotations.ConfigKey;
 import net.magnesiumbackend.core.config.ConfigSource;
 import net.magnesiumbackend.core.config.GeneratedConfigClass;
-import net.magnesiumbackend.core.config.RequiredValue;
+import net.magnesiumbackend.core.annotations.RequiredValue;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.processing.Filer;

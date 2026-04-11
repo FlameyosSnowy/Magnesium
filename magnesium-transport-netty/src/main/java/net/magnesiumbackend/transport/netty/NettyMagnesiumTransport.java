@@ -2,14 +2,15 @@ package net.magnesiumbackend.transport.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.*;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
+import net.magnesiumbackend.transport.netty.adapter.NettySslAdapter;
+import net.magnesiumbackend.transport.netty.pipeline.NettyPipelineFactory;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

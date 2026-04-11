@@ -1,7 +1,7 @@
 package net.magnesiumbackend.core.annotations.service;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
+import net.magnesiumbackend.core.services.ServiceRegistry;
 
 /**
  * Implemented by every compile-time-generated exception handler registration class.

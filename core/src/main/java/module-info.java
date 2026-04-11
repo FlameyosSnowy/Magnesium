@@ -1,6 +1,6 @@
 module core {
     uses net.magnesiumbackend.core.http.MagnesiumTransport;
-    uses net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+    uses net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
     uses net.magnesiumbackend.core.config.GeneratedConfigClass;
 
@@ -29,12 +29,12 @@ module core {
     exports net.magnesiumbackend.core.exceptions;
     exports net.magnesiumbackend.core.http;
     exports net.magnesiumbackend.core.http.exceptions;
-    exports net.magnesiumbackend.core.http.socket;
+    exports net.magnesiumbackend.core.http.websocket;
     exports net.magnesiumbackend.core.json;
     exports net.magnesiumbackend.core.config;
     exports net.magnesiumbackend.core.meta;
     exports net.magnesiumbackend.core.auth;
-    exports net.magnesiumbackend.core.registry;
+    exports net.magnesiumbackend.core.services;
     exports net.magnesiumbackend.core.route;
     exports net.magnesiumbackend.core.http.messages;
     exports net.magnesiumbackend.core.security;

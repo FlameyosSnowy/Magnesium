@@ -1,8 +1,6 @@
 package net.magnesiumbackend.core.event;
 
 import net.magnesiumbackend.core.annotations.enums.EventPriority;
-import net.magnesiumbackend.core.registry.EmitRegistry;
-import net.magnesiumbackend.core.registry.SubscribeRegistry;
 
 import java.util.List;
 import java.util.Objects;

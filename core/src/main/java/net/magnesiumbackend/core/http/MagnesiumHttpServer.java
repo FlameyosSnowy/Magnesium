@@ -1,11 +1,11 @@
 package net.magnesiumbackend.core.http;
 
 import net.magnesiumbackend.core.WebSocketSessionManagerLoader;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketRouteBuilder;
-import net.magnesiumbackend.core.http.socket.WebSocketRouteRegistry;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
-import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketRouteBuilder;
+import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
+import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.HttpRouteHandler;
 import net.magnesiumbackend.core.route.RoutePathTemplate;

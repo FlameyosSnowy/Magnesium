@@ -2,7 +2,7 @@ package net.magnesiumbackend.transport.tomcat;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
 import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;

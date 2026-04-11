@@ -5,9 +5,9 @@ import jakarta.websocket.Endpoint;
 import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.MessageHandler;
 import jakarta.websocket.Session;
-import net.magnesiumbackend.core.http.socket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -4,16 +4,15 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.http.socket.WebSocketRouteRegistry;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
-import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
+import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.RouteTree;
 
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import net.magnesiumbackend.core.security.SslConfig;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -64,7 +63,7 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
         WebSocketRouteRegistry wsRegistry = application.httpServer().webSocketRouteRegistry();
         WebSocketSessionManager sessionManager = application.httpServer().webSocketSessionManager();
 
-        for (RouteTree.RouteEntry<net.magnesiumbackend.core.http.socket.WebSocketHandler> entry
+        for (RouteTree.RouteEntry<net.magnesiumbackend.core.http.websocket.WebSocketHandler> entry
             : wsRegistry.entries()) {
             String path        = entry.path();
             String contextPath = toContextPath(path);

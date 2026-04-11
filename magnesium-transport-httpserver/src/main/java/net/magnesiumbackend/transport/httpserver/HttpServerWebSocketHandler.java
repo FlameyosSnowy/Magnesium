@@ -1,8 +1,8 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpExchange;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketSessionManager;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import robaho.net.httpserver.websockets.WebSocket;
 
 import java.util.Map;

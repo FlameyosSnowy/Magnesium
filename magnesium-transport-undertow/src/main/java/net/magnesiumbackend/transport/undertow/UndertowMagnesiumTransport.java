@@ -3,8 +3,10 @@ package net.magnesiumbackend.transport.undertow;
 import io.undertow.Undertow;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.registry.HttpRouteRegistry;
+import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
+import net.magnesiumbackend.transport.undertow.adapter.UndertowSslAdapter;
+import net.magnesiumbackend.transport.undertow.handler.UndertowHttpHandler;
 
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;

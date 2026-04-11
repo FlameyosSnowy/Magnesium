@@ -1,7 +1,7 @@
 package net.magnesiumbackend.transport.tomcat;
 
 import jakarta.websocket.Session;
-import net.magnesiumbackend.core.http.socket.WebSocketSession;
+import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -11,7 +11,7 @@ import net.magnesiumbackend.core.annotations.ExceptionHandler;
 import net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
 import net.magnesiumbackend.core.base.MagnesiumController;
 import net.magnesiumbackend.core.meta.GeneratedExceptionHandlers;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
+import net.magnesiumbackend.core.services.ServiceRegistry;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,7 +54,7 @@ public class ExceptionHandlerRegistrationGenerator {
         this.throwableTypeElement      = elements.getTypeElement("java.lang.Throwable");
         this.responseTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.http.ResponseEntity");
         this.requestTypeElement       = elements.getTypeElement("net.magnesiumbackend.core.route.RequestContext");
-        this.serviceRegistryTypeElement = elements.getTypeElement("net.magnesiumbackend.core.registry.ServiceRegistry");
+        this.serviceRegistryTypeElement = elements.getTypeElement("net.magnesiumbackend.core.services.ServiceRegistry");
     }
 
     public String generate(TypeElement exceptionHandler) {

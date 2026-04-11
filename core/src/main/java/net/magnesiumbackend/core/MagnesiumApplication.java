@@ -9,11 +9,11 @@ import net.magnesiumbackend.core.http.RequestSecurityRegistryBuilder;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.json.JsonProvider;
 import net.magnesiumbackend.core.meta.GeneratedExceptionHandlers;
-import net.magnesiumbackend.core.registry.ExceptionHandlerRegistrar;
-import net.magnesiumbackend.core.registry.ExceptionHandlerRegistry;
-import net.magnesiumbackend.core.registry.ServiceContext;
-import net.magnesiumbackend.core.registry.ServiceRegistrar;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
+import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistrar;
+import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
+import net.magnesiumbackend.core.services.ServiceContext;
+import net.magnesiumbackend.core.services.ServiceRegistrar;
+import net.magnesiumbackend.core.services.ServiceRegistry;
 import net.magnesiumbackend.core.security.RequestSigningFilter;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
 import net.magnesiumbackend.core.security.SslConfig;
@@ -197,7 +197,7 @@ public final class MagnesiumApplication {
             return this;
         }
 
-        /** Registers application services with the service registry. */
+        /** Registers application services with the service services. */
         @Contract("_ -> this")
         public Builder services(@NotNull Consumer<ServiceRegistrar> configure) {
             ServiceRegistrar serviceRegistrar = new ServiceRegistrar(serviceFactories);

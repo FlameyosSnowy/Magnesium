@@ -4,11 +4,11 @@ import com.palantir.javapoet.*;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.annotations.WebSocketMapping;
 import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
-import net.magnesiumbackend.core.http.socket.WebSocketHandler;
-import net.magnesiumbackend.core.http.socket.WebSocketMessage;
-import net.magnesiumbackend.core.http.socket.WebSocketRouteRegistry;
-import net.magnesiumbackend.core.http.socket.WebSocketSession;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
+import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketSession;
+import net.magnesiumbackend.core.services.ServiceRegistry;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.processing.Filer;
@@ -39,8 +39,8 @@ public class WebSocketRegistrationGenerator {
         this.elements = elements;
         this.messager = messager;
 
-        this.sessionTypeElement = elements.getTypeElement("net.magnesiumbackend.core.http.socket.WebSocketSession");
-        this.messageTypeElement = elements.getTypeElement("net.magnesiumbackend.core.http.socket.WebSocketMessage");
+        this.sessionTypeElement = elements.getTypeElement("net.magnesiumbackend.core.http.websocket.WebSocketSession");
+        this.messageTypeElement = elements.getTypeElement("net.magnesiumbackend.core.http.websocket.WebSocketMessage");
         this.throwableTypeElement = elements.getTypeElement("java.lang.Throwable");
     }
 

@@ -1,12 +1,11 @@
 package net.magnesiumbackend.transport.httpserver;
 
-import net.magnesiumbackend.core.http.socket.WebSocketSession;
+import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import robaho.net.httpserver.websockets.CloseCode;
 import robaho.net.httpserver.websockets.WebSocket;
-import robaho.net.httpserver.websockets.WebSocketException;
 
 import java.io.IOException;
 import java.util.Map;

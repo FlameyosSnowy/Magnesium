@@ -2,7 +2,6 @@ package net.magnesiumbackend.core.meta;
 
 import io.github.flameyossnowy.velocis.tables.HashTable;
 import io.github.flameyossnowy.velocis.tables.Table;
-import net.magnesiumbackend.core.registry.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteExceptionHandler;
 
@@ -10,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Compile-time-generated exception handler registry.
+ * Compile-time-generated exception handler services.
  *
  * <p>The annotation processor replaces this class entirely with a generated
  * version that populates {@link #GLOBAL} and {@link #LOCAL} in a static

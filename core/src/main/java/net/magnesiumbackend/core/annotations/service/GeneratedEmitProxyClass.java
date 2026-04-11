@@ -1,8 +1,8 @@
 package net.magnesiumbackend.core.annotations.service;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
-import net.magnesiumbackend.core.registry.EmitRegistry;
-import net.magnesiumbackend.core.registry.ServiceRegistry;
+import net.magnesiumbackend.core.event.EmitRegistry;
+import net.magnesiumbackend.core.services.ServiceRegistry;
 
 /**
  * Implemented by every proxy class the annotation processor generates for a

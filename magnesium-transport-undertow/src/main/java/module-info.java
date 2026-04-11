@@ -9,4 +9,7 @@ module magnesium.transport.undertow {
         with net.magnesiumbackend.transport.undertow.UndertowMagnesiumTransport;
 
     exports net.magnesiumbackend.transport.undertow;
+    exports net.magnesiumbackend.transport.undertow.websocket;
+    exports net.magnesiumbackend.transport.undertow.adapter;
+    exports net.magnesiumbackend.transport.undertow.handler;
 }

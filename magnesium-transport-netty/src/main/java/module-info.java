@@ -15,4 +15,8 @@ module magnesium.transport.netty {
         with net.magnesiumbackend.transport.netty.NettyMagnesiumTransport;
 
     exports net.magnesiumbackend.transport.netty;
+    exports net.magnesiumbackend.transport.netty.websocket;
+    exports net.magnesiumbackend.transport.netty.handler;
+    exports net.magnesiumbackend.transport.netty.adapter;
+    exports net.magnesiumbackend.transport.netty.pipeline;
 }
