@@ -50,7 +50,7 @@ public final class HttpResponseWriter {
     }
 
     public byte[] toBytes(ResponseEntity<?> responseEntity) {
-        return this.converterRegistry.findWriter(responseEntity.body(), resolveContentType(responseEntity.headers()))
+        return converterRegistry.findWriter(responseEntity.body(), resolveContentType(responseEntity.headers()))
             .toBytes(responseEntity.body());
     }
 }

@@ -43,7 +43,7 @@ public final class SimplePrincipal implements Principal {
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
-        if (obj == null || obj.getClass() != this.getClass()) return false;
+        if (obj == null || obj.getClass() != getClass()) return false;
         var that = (SimplePrincipal) obj;
         return Objects.equals(this.userId, that.userId) &&
             Objects.equals(this.username, that.username) &&

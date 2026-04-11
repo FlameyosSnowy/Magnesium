@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.route;
 
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -16,7 +17,7 @@ public class RouteTree<T> {
 
     private volatile List<RouteEntry<T>> cachedEntries = null;
 
-    public void register(RoutePathTemplate template, T handler) {
+    public void register(@NotNull RoutePathTemplate template, T handler) {
         RouteNode<T> current = root;
         String[] literals = template.literals();
         String[] varNames = template.varNames();

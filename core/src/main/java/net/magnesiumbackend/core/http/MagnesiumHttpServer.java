@@ -86,47 +86,47 @@ public class MagnesiumHttpServer {
         }
 
         public Builder get(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.GET, path, handler, List.of());
+            route(HttpMethod.GET, path, handler, List.of());
             return this;
         }
 
         public Builder post(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.POST, path, handler, List.of());
+            route(HttpMethod.POST, path, handler, List.of());
             return this;
         }
 
         public Builder put(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.PUT, path, handler, List.of());
+            route(HttpMethod.PUT, path, handler, List.of());
             return this;
         }
 
         public Builder patch(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.PATCH, path, handler, List.of());
+            route(HttpMethod.PATCH, path, handler, List.of());
             return this;
         }
 
         public Builder delete(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.DELETE, path, handler, List.of());
+            route(HttpMethod.DELETE, path, handler, List.of());
             return this;
         }
 
         public Builder head(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.HEAD, path, handler, List.of());
+            route(HttpMethod.HEAD, path, handler, List.of());
             return this;
         }
 
         public Builder options(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.OPTIONS, path, handler, List.of());
+            route(HttpMethod.OPTIONS, path, handler, List.of());
             return this;
         }
 
         public Builder trace(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.TRACE, path, handler, List.of());
+            route(HttpMethod.TRACE, path, handler, List.of());
             return this;
         }
 
         public Builder connect(String path, HttpRouteHandler handler) {
-            this.route(HttpMethod.CONNECT, path, handler, List.of());
+            route(HttpMethod.CONNECT, path, handler, List.of());
             return this;
         }
 
@@ -144,47 +144,47 @@ public class MagnesiumHttpServer {
         }
 
         public Builder get(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.GET, path, handler, filters);
+            route(HttpMethod.GET, path, handler, filters);
             return this;
         }
 
         public Builder post(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.POST, path, handler, filters);
+            route(HttpMethod.POST, path, handler, filters);
             return this;
         }
 
         public Builder put(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.PUT, path, handler, filters);
+            route(HttpMethod.PUT, path, handler, filters);
             return this;
         }
 
         public Builder patch(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.PATCH, path, handler, filters);
+            route(HttpMethod.PATCH, path, handler, filters);
             return this;
         }
 
         public Builder delete(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.DELETE, path, handler, filters);
+            route(HttpMethod.DELETE, path, handler, filters);
             return this;
         }
 
         public Builder head(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.HEAD, path, handler, filters);
+            route(HttpMethod.HEAD, path, handler, filters);
             return this;
         }
 
         public Builder options(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.OPTIONS, path, handler, filters);
+            route(HttpMethod.OPTIONS, path, handler, filters);
             return this;
         }
 
         public Builder trace(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.TRACE, path, handler, filters);
+            route(HttpMethod.TRACE, path, handler, filters);
             return this;
         }
 
         public Builder connect(String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            this.route(HttpMethod.CONNECT, path, handler, filters);
+            route(HttpMethod.CONNECT, path, handler, filters);
             return this;
         }
 

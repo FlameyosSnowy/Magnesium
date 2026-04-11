@@ -92,7 +92,7 @@ public final class MagnesiumApplication {
         this.onExit  = builder.onExit  != null ? builder.onExit  : _ -> {};
 
         this.transport = TransportLoader.load().orElseGet(() -> {
-            if (this.httpServer.isConfigured()) {
+            if (httpServer.isConfigured()) {
                 throw new IllegalStateException("No TransportProvider found on classpath but HttpServer is configured. Add a dependency like magnesium-transport-netty.");
             }
             return null;
@@ -100,8 +100,8 @@ public final class MagnesiumApplication {
 
         MagnesiumBootstrap.load().apply(this);
 
-        GeneratedExceptionHandlers.GLOBAL.forEach(this.exceptionHandlerRegistry::registerGlobal);
-        GeneratedExceptionHandlers.LOCAL.forEach(this.exceptionHandlerRegistry::registerRoute);
+        GeneratedExceptionHandlers.GLOBAL.forEach(exceptionHandlerRegistry::registerGlobal);
+        GeneratedExceptionHandlers.LOCAL.forEach(exceptionHandlerRegistry::registerRoute);
     }
 
     public static Builder builder() {
@@ -255,7 +255,7 @@ public final class MagnesiumApplication {
         /** Configures the embedded HTTP server. */
         @Contract("_ -> this")
         public Builder messageConversion(@NotNull Consumer<MessageConverterRegistry> configure) {
-            configure.accept(this.messageConverterRegistry);
+            configure.accept(messageConverterRegistry);
             return this;
         }
 
@@ -307,12 +307,12 @@ public final class MagnesiumApplication {
     public void run(int port) {
         LOGGER.info("Starting the server on port: {}", port);
 
-        this.eventBus.start();
+        eventBus.start();
 
         MagnesiumStartupLogger.logStartup(this);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            this.onExit.accept(this.serviceRegistry);
+            onExit.accept(serviceRegistry);
             shutdownLatch.countDown();
         }));
 
@@ -321,12 +321,12 @@ public final class MagnesiumApplication {
 
     private void bindServer(int port, CountDownLatch shutdownLatch) {
         // If the transport is null AND the http server is NOT null then we'll throw
-        if (this.transport == null && this.httpServer != null) {
+        if (transport == null && httpServer != null) {
             throw new IllegalStateException("Cannot have a null MagnesiumTransport while having a configured HTTP server.");
         }
 
         // If the transport is NOT null AND the http server is null then we'll throw
-        if (this.transport != null && this.httpServer == null) {
+        if (transport != null && httpServer == null) {
             throw new IllegalStateException("Cannot have a null HTTP server while having a configured MagnesiumTransport.");
         }
 
@@ -344,7 +344,7 @@ public final class MagnesiumApplication {
             return;
         }
 
-        this.transport.bind(port, this, this.httpServer.routes());
+        transport.bind(port, this, this.httpServer.routes());
     }
 
     public ExceptionHandlerRegistry exceptionHandlerRegistry() {
