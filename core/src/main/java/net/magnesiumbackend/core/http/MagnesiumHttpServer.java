@@ -67,10 +67,10 @@ public class MagnesiumHttpServer {
 
     public static final class Builder {
 
-        private final HttpRouteRegistry routes = new HttpRouteRegistry();
+        private HttpRouteRegistry routes = new HttpRouteRegistry();
 
-        private final List<HttpFilter> globalFilters = new ArrayList<>();
-        private final WebSocketRouteRegistry websocketRoutes = new WebSocketRouteRegistry();
+        private List<HttpFilter> globalFilters = new ArrayList<>();
+        private WebSocketRouteRegistry websocketRoutes = new WebSocketRouteRegistry();
 
         private Builder() {}
 
@@ -206,6 +206,12 @@ public class MagnesiumHttpServer {
         @Contract(value = " -> new", pure = true)
         public @NotNull MagnesiumHttpServer build() {
             return new MagnesiumHttpServer(this);
+        }
+
+        public void server(MagnesiumHttpServer httpServer) {
+            this.routes = httpServer.httpRouteRegistry;
+            this.globalFilters = httpServer.globalFilters;
+            this.websocketRoutes = httpServer.websocketRoutes;
         }
     }
 
