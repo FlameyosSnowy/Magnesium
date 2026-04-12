@@ -19,7 +19,6 @@ public final class RateLimiter {
 
     /**
      * Returns a RateLimitResult for the given key (e.g. IP, user ID, API key).
-     * Thread-safe — each key gets its own isolated state.
      */
     public RateLimitResult check(String key) {
         WindowState state = windows.computeIfAbsent(key, k -> new WindowState(requests, window, algorithm));

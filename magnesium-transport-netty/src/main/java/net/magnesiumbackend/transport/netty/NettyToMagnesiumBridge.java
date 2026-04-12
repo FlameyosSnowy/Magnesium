@@ -58,7 +58,6 @@ public final class NettyToMagnesiumBridge {
         return switch (version) {
             case HTTP_1_0 -> HttpVersion.HTTP_1_0;
             case HTTP_1_1 -> HttpVersion.HTTP_1_1;
-            // HTTP/2 uses a separate frame codec — not representable as HttpVersion
             case HTTP_2_0 -> throw new UnsupportedOperationException(
                 "HTTP/2 uses a separate codec pipeline, not HttpVersion."
             );
