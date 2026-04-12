@@ -204,8 +204,10 @@ public class RouteManifestGenerator {
         collectFilterNames(controller.getAnnotationMirrors(), result);
         collectFilterNames(method.getAnnotationMirrors(), result);
 
-        if (hasAnnotation(method, "net.magnesiumbackend.core.annotations.Authenticated")
-         || hasAnnotation(controller, "net.magnesiumbackend.core.annotations.Authenticated")) {
+        boolean anonymous = hasAnnotation(method, "net.magnesiumbackend.core.annotations.Anonymous")
+         || hasAnnotation(controller, "net.magnesiumbackend.core.annotations.Anonymous");
+
+        if (!anonymous) {
             result.add("AuthorizationFilter");
         }
         if (hasAnnotation(method, "net.magnesiumbackend.core.annotations.VerifySignature")) {

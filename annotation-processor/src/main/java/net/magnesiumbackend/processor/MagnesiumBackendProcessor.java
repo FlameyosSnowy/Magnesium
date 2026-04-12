@@ -93,6 +93,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(Filters.class.getCanonicalName());
         supported.add(Filter.class.getCanonicalName());
         supported.add(VerifySignature.class.getCanonicalName());
+        supported.add(Anonymous.class.getCanonicalName());
         return supported;
     }
 

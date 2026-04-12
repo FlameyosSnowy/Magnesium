@@ -7,7 +7,6 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import net.magnesiumbackend.core.MagnesiumApplication;
-import net.magnesiumbackend.core.annotations.Authenticated;
 import net.magnesiumbackend.core.annotations.ConnectMapping;
 import net.magnesiumbackend.core.annotations.DeleteMapping;
 import net.magnesiumbackend.core.annotations.GetMapping;
@@ -23,6 +22,7 @@ import net.magnesiumbackend.core.annotations.Requires;
 import net.magnesiumbackend.core.annotations.TracesMapping;
 import net.magnesiumbackend.core.annotations.ApplicationConfiguration;
 import net.magnesiumbackend.core.annotations.VerifySignature;
+import net.magnesiumbackend.core.annotations.Anonymous;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.exceptions.BadRequestException;
@@ -344,9 +344,11 @@ public class RouteRegistrationGenerator {
         Requires classRequires  = method.getEnclosingElement().getAnnotation(Requires.class);
         Requires requires       = methodRequires != null ? methodRequires : classRequires;
 
-        boolean methodAuthenticated = method.getAnnotation(Authenticated.class) != null;
-        boolean classAuthenticated  = method.getEnclosingElement().getAnnotation(Authenticated.class) != null;
-        boolean requiresAuth        = methodAuthenticated || classAuthenticated || requires != null;
+        boolean methodAnonymous = method.getAnnotation(Anonymous.class) != null;
+        boolean classAnonymous  = method.getEnclosingElement().getAnnotation(Anonymous.class) != null;
+        boolean anonymous       = methodAnonymous || classAnonymous;
+
+        boolean requiresAuth = !anonymous || requires != null;
 
         boolean methodVerifySignature = method.getAnnotation(VerifySignature.class) != null;
         boolean classVerifySignature  = method.getEnclosingElement().getAnnotation(VerifySignature.class) != null;
