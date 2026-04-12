@@ -1,20 +1,20 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpExchange;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import robaho.net.httpserver.websockets.WebSocket;
 
 import java.util.Map;
 
 public class HttpServerWebSocketHandler extends robaho.net.httpserver.websockets.WebSocketHandler {
-    private final WebSocketHandler magnesiumHandler;
+    private final WebSocketHandlerWrapper magnesiumHandler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
     private final Map<String, String> pathVariables;
 
     public HttpServerWebSocketHandler(
-        WebSocketHandler magnesiumHandler,
+        WebSocketHandlerWrapper magnesiumHandler,
         WebSocketSessionManager sessionManager,
         String path,
         Map<String, String> pathVariables

@@ -23,6 +23,9 @@ import net.magnesiumbackend.core.annotations.TracesMapping;
 import net.magnesiumbackend.core.annotations.ApplicationConfiguration;
 import net.magnesiumbackend.core.annotations.VerifySignature;
 import net.magnesiumbackend.core.annotations.Anonymous;
+import net.magnesiumbackend.core.annotations.Filter;
+import net.magnesiumbackend.core.annotations.Filters;
+import net.magnesiumbackend.core.annotations.PathParam;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.exceptions.BadRequestException;
@@ -30,6 +33,7 @@ import net.magnesiumbackend.processor.path.CompiledPathTemplate;
 import net.magnesiumbackend.core.route.RoutePathTemplate;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.services.ServiceRegistry;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,6 +67,12 @@ public class RouteRegistrationGenerator {
     private final TypeElement throwableTypeElement;
     private final TypeElement wrongRequestTypeElement;
     private final TypeElement stringTypeElement;
+    private final TypeElement completableFutureTypeElement;
+    private final TypeElement httpFilterTypeElement;
+    private final TypeElement asyncHttpFilterTypeElement;
+    private final TypeElement integerTypeElement;
+    private final TypeElement longTypeElement;
+    private final TypeElement uuidTypeElement;
 
     public RouteRegistrationGenerator(Types types, Filer filer, Elements elements, Messager messager) {
         this.types    = types;
@@ -76,6 +86,11 @@ public class RouteRegistrationGenerator {
         this.routeRegistryTypeElement = elements.getTypeElement("net.magnesiumbackend.core.route.HttpRouteRegistry");
         this.throwableTypeElement     = elements.getTypeElement("java.lang.Throwable");
         this.stringTypeElement        = elements.getTypeElement("java.lang.String");
+        this.completableFutureTypeElement = elements.getTypeElement("java.util.concurrent.CompletableFuture");
+        this.httpFilterTypeElement    = elements.getTypeElement("net.magnesiumbackend.core.route.HttpFilter");
+        this.integerTypeElement       = elements.getTypeElement("java.lang.Integer");
+        this.longTypeElement          = elements.getTypeElement("java.lang.Long");
+        this.uuidTypeElement          = elements.getTypeElement("java.util.UUID");
     }
 
     public String generate(TypeElement serviceClass) {
@@ -199,8 +214,11 @@ public class RouteRegistrationGenerator {
         TypeMirror returnType = method.getReturnType();
         boolean returnsVoid     = returnType.getKind() == TypeKind.VOID;
         boolean returnsResponse = types.isAssignable(returnType, responseTypeElement.asType());
-        if (!returnsVoid && !returnsResponse && !isJsonConvertible(returnType)) {
-            error("The return type of a @" + httpMethod + "Route method must be void, Response, "
+        boolean returnsCompletableFuture = completableFutureTypeElement != null &&
+            types.isAssignable(returnType, completableFutureTypeElement.asType());
+
+        if (!returnsVoid && !returnsResponse && !returnsCompletableFuture && !isJsonConvertible(returnType)) {
+            error("The return type of a @" + httpMethod + "Route method must be void, Response, CompletableFuture, "
                 + "or a type that JsonProvider can serialise.", method);
             return false;
         }
@@ -319,8 +337,10 @@ public class RouteRegistrationGenerator {
         TypeMirror      returnType = method.getReturnType();
 
         boolean isResponse = types.isAssignable(returnType, responseTypeElement.asType());
+        boolean isAsync = completableFutureTypeElement != null &&
+            types.isAssignable(returnType, completableFutureTypeElement.asType());
 
-        CodeBlock lambda = createLambda(method, isResponse, varName);
+        CodeBlock lambda = createLambda(method, isResponse, isAsync, varName);
 
         CompiledPathTemplate compiled = CompiledPathTemplate.compile(path);
 
@@ -380,24 +400,23 @@ public class RouteRegistrationGenerator {
             ));
         }
 
-        // @RateLimit
         RateLimit methodRateLimit = method.getAnnotation(RateLimit.class);
         RateLimit classRateLimit  = method.getEnclosingElement().getAnnotation(RateLimit.class);
         RateLimit rateLimit       = methodRateLimit != null ? methodRateLimit : classRateLimit;
 
-// @Idempotent
         Idempotent methodIdempotent = method.getAnnotation(Idempotent.class);
         Idempotent classIdempotent  = method.getEnclosingElement().getAnnotation(Idempotent.class);
         Idempotent idempotent       = methodIdempotent != null ? methodIdempotent : classIdempotent;
 
         if (rateLimit != null) {
             filterBlocks.add(CodeBlock.of(
-                "new $T($T.builder()\n" +
-                    "    .requests($L)\n" +
-                    "    .window($T.ofSeconds($L))\n" +
-                    "    .$L()\n" +
-                    "    .build(),\n" +
-                    "    $T.$L())",
+                """
+                    new $T($T.builder()
+                        .requests($L)
+                        .window($T.ofSeconds($L))
+                        .$L()
+                        .build(),
+                        $T.$L())""",
                 ClassName.get("net.magnesiumbackend.core.security", "RateLimiterFilter"),
                 ClassName.get("net.magnesiumbackend.core.security", "RateLimiter"),
                 rateLimit.requests(),
@@ -417,21 +436,150 @@ public class RouteRegistrationGenerator {
             ));
         }
 
-        CodeBlock filtersArg = filterBlocks.isEmpty()
+        // Process custom @Filter annotations
+        List<CodeBlock> asyncFilterBlocks = new ArrayList<>();
+        processCustomFilters(method, filterBlocks, asyncFilterBlocks);
+        processCustomFilters(method.getEnclosingElement(), filterBlocks, asyncFilterBlocks);
+
+        // Determine registration method based on handler type and filter types
+        boolean hasSyncFilters = !filterBlocks.isEmpty();
+        boolean hasAsyncFilters = !asyncFilterBlocks.isEmpty();
+
+        CodeBlock syncFiltersArg = filterBlocks.isEmpty()
             ? CodeBlock.of("$T.of()", ClassName.get(List.class))
             : CodeBlock.of("$T.of($L)", ClassName.get(List.class),
             filterBlocks.stream().collect(CodeBlock.joining(", ")));
 
-        register.addCode(
-            "routeRegistry.register($T.$L, $L, $L, $L);\n",
-            ClassName.get(HttpMethod.class),
-            httpMethod,
-            template,
-            lambda,
-            filtersArg
-        );
+        CodeBlock asyncFiltersArg = asyncFilterBlocks.isEmpty()
+            ? CodeBlock.of("$T.of()", ClassName.get(List.class))
+            : CodeBlock.of("$T.of($L)", ClassName.get(List.class),
+            asyncFilterBlocks.stream().collect(CodeBlock.joining(", ")));
+
+        // Choose appropriate registration method
+        if (isAsync) {
+            if (hasSyncFilters && hasAsyncFilters) {
+                // Mixed filters with async handler
+                register.addCode(
+                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $L);\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    syncFiltersArg,
+                    asyncFiltersArg
+                );
+            } else if (hasSyncFilters) {
+                // Only sync filters with async handler - they'll be adapted
+                register.addCode(
+                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $T.of());\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    syncFiltersArg,
+                    ClassName.get(List.class)
+                );
+            } else if (hasAsyncFilters) {
+                // Only async filters with async handler
+                register.addCode(
+                    "routeRegistry.registerAsync($T.$L, $L, $L, $L);\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    asyncFiltersArg
+                );
+            } else {
+                // No filters, pure async
+                register.addCode(
+                    "routeRegistry.registerAsync($T.$L, $L, $L, $T.of());\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    ClassName.get(List.class)
+                );
+            }
+        } else {
+            if (hasSyncFilters && hasAsyncFilters) {
+                // Mixed filters with sync handler
+                register.addCode(
+                    "routeRegistry.registerMixed($T.$L, $L, $L, $L, $L);\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    syncFiltersArg,
+                    asyncFiltersArg
+                );
+            } else if (hasAsyncFilters) {
+                // Only async filters with sync handler - they'll be adapted (with warning)
+                register.addCode(
+                    "routeRegistry.registerMixed($T.$L, $L, $L, $T.of(), $L);\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    ClassName.get(List.class),
+                    asyncFiltersArg
+                );
+            } else {
+                // Pure sync (no filters or only sync filters)
+                register.addCode(
+                    "routeRegistry.register($T.$L, $L, $L, $L);\n",
+                    ClassName.get(HttpMethod.class),
+                    httpMethod,
+                    template,
+                    lambda,
+                    syncFiltersArg
+                );
+            }
+        }
 
         return true;
+    }
+
+    /**
+     * Processes @Filter annotations on the given element.
+     *
+     * @param element The element (method or class) to check for @Filter annotations
+     * @param syncFilters List to collect sync filter code blocks
+     * @param asyncFilters List to collect async filter code blocks
+     */
+    private void processCustomFilters(Element element, List<CodeBlock> syncFilters, List<CodeBlock> asyncFilters) {
+        // Process single @Filter
+        Filter filter = element.getAnnotation(Filter.class);
+        if (filter != null) {
+            addFilter(filter.value(), syncFilters, asyncFilters);
+        }
+
+        // Process @Filters (container)
+        Filters filters = element.getAnnotation(Filters.class);
+        if (filters != null) {
+            for (Filter f : filters.value()) {
+                addFilter(f.value(), syncFilters, asyncFilters);
+            }
+        }
+    }
+
+    /**
+     * Determines if a filter class is async or sync and adds it to the appropriate list.
+     */
+    private void addFilter(Class<?> filterClass, List<CodeBlock> syncFilters, List<CodeBlock> asyncFilters) {
+        TypeElement filterElement = elements.getTypeElement(filterClass.getCanonicalName());
+        if (filterElement == null) return;
+
+        TypeMirror filterType = filterElement.asType();
+
+        // Check if it implements AsyncHttpFilter
+        if (asyncHttpFilterTypeElement != null &&
+            types.isAssignable(filterType, asyncHttpFilterTypeElement.asType())) {
+            asyncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
+        }
+        // Otherwise assume it's HttpFilter (or extends it)
+        else {
+            syncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
+        }
     }
 
     private static CodeBlock buildStringArray(List<String> values) {
@@ -443,6 +591,7 @@ public class RouteRegistrationGenerator {
         return builder.add(" }").build();
     }
 
+    @Contract(value = "null -> true", pure = true)
     private boolean isEmptyOrAllNull(String[] arr) {
         if (arr == null) return true;
         for (String s : arr) {
@@ -451,7 +600,7 @@ public class RouteRegistrationGenerator {
         return true;
     }
 
-    private @NotNull CodeBlock createLambda(ExecutableElement method, boolean returnsResponse, String varName) {
+    private @NotNull CodeBlock createLambda(ExecutableElement method, boolean returnsResponse, boolean isAsync, String varName) {
         CodeBlock.Builder b = CodeBlock.builder();
         b.add("request -> {\n");
 
@@ -507,6 +656,39 @@ public class RouteRegistrationGenerator {
                 continue;
             }
 
+            // @PathParam handling
+            PathParam pathParam = param.getAnnotation(PathParam.class);
+            if (pathParam != null) {
+                String varName2 = pathParam.value().isEmpty() ? param.getSimpleName().toString() : pathParam.value();
+                String rawPathVar = "__magnesium_pathvar_" + varName2;
+                b.addStatement("String $N = request.pathVariables().get($S)", rawPathVar, varName2);
+
+                // Type conversion for common types
+                if (types.isAssignable(t, stringTypeElement.asType())) {
+                    b.addStatement("$T $N = $N", tn, argName, rawPathVar);
+                } else if (types.isAssignable(t, integerTypeElement.asType()) || t.getKind() == TypeKind.INT) {
+                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, rawPathVar, tn, rawPathVar);
+                } else if (types.isAssignable(t, longTypeElement.asType()) || t.getKind() == TypeKind.LONG) {
+                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, rawPathVar, tn, rawPathVar);
+                } else if (uuidTypeElement != null && types.isAssignable(t, uuidTypeElement.asType())) {
+                    b.addStatement("$T $N = $N != null ? $T.fromString($N) : null", tn, argName, rawPathVar, tn, rawPathVar);
+                } else {
+                    // Try to find static parse method or String constructor
+                    HeaderParserKind kind = findHeaderParserKind(t);
+                    if (kind == HeaderParserKind.STATIC_PARSE) {
+                        b.addStatement("$T $N = $N != null ? $T.parse($N) : null", tn, argName, rawPathVar, tn, rawPathVar);
+                    } else if (kind == HeaderParserKind.STRING_CTOR) {
+                        b.addStatement("$T $N = $N != null ? new $T($N) : null", tn, argName, rawPathVar, tn, rawPathVar);
+                    } else {
+                        // Should have been caught by validation, keep generated code valid
+                        b.addStatement("throw new $T($S)", BadRequestException.class, "Unsupported @PathParam type: " + tn);
+                    }
+                }
+
+                argNames.add(argName);
+                continue;
+            }
+
             // body param
             String bodyVar = "__magnesium_body_" + (bodyIndex++);
             b.addStatement("$T $N = jsonProvider.fromRequest(request.request(), $T.class)", tn, bodyVar, tn);
@@ -523,11 +705,15 @@ public class RouteRegistrationGenerator {
         if (method.getReturnType().getKind() == TypeKind.VOID) {
             b.addStatement("$L.$L($L)", varName, method.getSimpleName(), args.build());
             b.addStatement("return $T.ok()", ClassName.get("net.magnesiumbackend.core.http", "ResponseEntity"));
+        } else if (isAsync) {
+            // For async methods (CompletableFuture), return directly - transport will handle appropriately
+            b.addStatement("return $L.$L($L)", varName, method.getSimpleName(), args.build());
         } else if (returnsResponse) {
             b.addStatement("return $L.$L($L)", varName, method.getSimpleName(), args.build());
         } else {
+            // Non-ResponseEntity return type - wrap in ResponseEntity.ok()
             b.addStatement("var result = $L.$L($L)", varName, method.getSimpleName(), args.build());
-            b.addStatement("return result");
+            b.addStatement("return $T.ok(result)", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
         }
 
         b.add("}\n");
