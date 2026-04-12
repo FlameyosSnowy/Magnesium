@@ -262,6 +262,11 @@ public final class RoutePathTemplate {
 
         for (int i = 0; i <= len; i++) {
             if (i == len || path.charAt(i) == '/') {
+                // Skip empty segment from leading '/'
+                if (i == 0) {
+                    start = i + 1;
+                    continue;
+                }
 
                 if (segIndex >= segmentCount) return null;
 
