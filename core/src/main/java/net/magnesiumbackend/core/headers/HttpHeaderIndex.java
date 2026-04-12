@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.headers;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,7 +16,7 @@ public final class HttpHeaderIndex {
         parse(raw);
     }
 
-    private void parse(byte[] raw) {
+    private void parse(byte @NotNull [] raw) {
 
         int i = 0;
         int len = raw.length;

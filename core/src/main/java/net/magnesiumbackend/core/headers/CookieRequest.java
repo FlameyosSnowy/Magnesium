@@ -5,6 +5,7 @@ import java.util.Map;
 public final class CookieRequest {
 
     private final HttpHeaderIndex headers;
+    private CookieIndex cookieIndex;
 
     public CookieRequest(HttpHeaderIndex headers) {
         this.headers = headers;
@@ -14,8 +15,10 @@ public final class CookieRequest {
         return headers.get(name);
     }
 
-    public Map<String, String> cookies() {
-        Slice cookie = headers.get("cookie");
-        return CookieParser.parse(cookie);
+    public CookieIndex cookies() {
+        if (cookieIndex == null) {
+            cookieIndex = new CookieIndex(headers.get("cookie"));
+        }
+        return cookieIndex;
     }
 }

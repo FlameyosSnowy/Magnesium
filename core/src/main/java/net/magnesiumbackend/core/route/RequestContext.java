@@ -3,8 +3,9 @@ package net.magnesiumbackend.core.route;
 import net.magnesiumbackend.core.auth.Principal;
 import net.magnesiumbackend.core.auth.exceptions.AuthenticationException;
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.security.CorrelationIdFilter;
+import net.magnesiumbackend.core.headers.CookieIndex;
 import net.magnesiumbackend.core.headers.Slice;
+import net.magnesiumbackend.core.security.CorrelationIdFilter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,10 +13,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class RequestContext {
+
     private final Request request;
+
     private final Map<String, Object> attributes = new HashMap<>();
+
     private Principal principal = Principal.anonymous();
-    private Map<String, String> cookieIndex;
+
+    private CookieIndex cookies;
 
     public RequestContext(Request request) {
         this.request = request;
@@ -33,15 +38,14 @@ public final class RequestContext {
         return request.header(name);
     }
 
-    /** Returns the cookie value by name, or null if absent */
     public @Nullable String cookie(String name) {
-        if (cookieIndex == null) {
-            cookieIndex = request.cookies();
+        if (cookies == null) {
+            cookies = new CookieIndex(request.header("cookie"));
+            cookies.parseIfNeeded();
         }
-        return cookieIndex.get(name);
+        return cookies.getValue(name);
     }
 
-    /** Returns the query param by name, or null if absent */
     public @Nullable String queryParam(String name) {
         return request.queryParam(name);
     }
@@ -76,6 +80,8 @@ public final class RequestContext {
 
     @Override
     public String toString() {
-        return "RequestContext{request=" + request + ", principal=" + principal + ", attributes=" + attributes + '}';
+        return "RequestContext{request=" + request +
+            ", principal=" + principal +
+            ", attributes=" + attributes + '}';
     }
 }
