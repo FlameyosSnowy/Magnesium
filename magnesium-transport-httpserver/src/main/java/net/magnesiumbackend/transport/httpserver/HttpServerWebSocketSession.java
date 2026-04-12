@@ -60,6 +60,24 @@ public class HttpServerWebSocketSession implements WebSocketSession {
     }
 
     @Override
+    public void sendTextInIoThread(String text) {
+        try {
+            socket.send(text);
+        } catch (IOException e) {
+            LOGGER.error("Failed to send text frame", e);
+        }
+    }
+
+    @Override
+    public void sendBinaryInIoThread(byte[] data) {
+        try {
+            socket.send(data);
+        } catch (IOException e) {
+            LOGGER.error("Failed to send binary frame", e);
+        }
+    }
+
+    @Override
     public void close(int code, @NotNull String reason) {
         try {
             socket.close(CloseCode.find(code), reason, false);

@@ -14,7 +14,6 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.util.List;
-import java.util.concurrent.Executor;
 
 public class UndertowMagnesiumTransport implements MagnesiumTransport {
     private Undertow server;

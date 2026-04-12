@@ -3,7 +3,6 @@ package net.magnesiumbackend.core.http;
 import net.magnesiumbackend.core.WebSocketSessionManagerLoader;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
-import net.magnesiumbackend.core.http.websocket.AsyncWebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteBuilder;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
@@ -197,17 +196,14 @@ public class MagnesiumHttpServer {
         }
 
         /**
-         * Registers an asynchronous WebSocket handler.
+         * Registers a WebSocket handler with a builder pattern.
+         *
+         * <p>Supports both sync and async handlers through the builder.</p>
          *
          * @param path The WebSocket path
-         * @param handler The async WebSocket handler
+         * @param config Builder configuration
          * @return this builder, for chaining
          */
-        public Builder websocketAsync(String path, AsyncWebSocketHandler handler) {
-            websocketRoutes.registerAsync(path, handler);
-            return this;
-        }
-
         public Builder websocket(String path, Consumer<WebSocketRouteBuilder> config) {
             WebSocketRouteBuilder builder = new WebSocketRouteBuilder();
             config.accept(builder);

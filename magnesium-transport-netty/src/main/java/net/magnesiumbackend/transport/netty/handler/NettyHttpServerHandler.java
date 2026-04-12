@@ -254,7 +254,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         nettyHttpHeaders.iteratorAsString().forEachRemaining(e -> headers.put(e.getKey(), e.getValue()));
 
         NettyWebSocketSession session = new NettyWebSocketSession(
-            ctx.channel(), matched.pathVariables(), headers
+            ctx.channel(), matched.pathVariables(), headers, ctx
         );
 
         handshaker.handshake(ctx.channel(), req).addListener(future -> {

@@ -69,7 +69,6 @@ public class RouteRegistrationGenerator {
     private final TypeElement stringTypeElement;
     private final TypeElement completableFutureTypeElement;
     private final TypeElement httpFilterTypeElement;
-    private final TypeElement asyncHttpFilterTypeElement;
     private final TypeElement integerTypeElement;
     private final TypeElement longTypeElement;
     private final TypeElement uuidTypeElement;
@@ -569,17 +568,7 @@ public class RouteRegistrationGenerator {
         TypeElement filterElement = elements.getTypeElement(filterClass.getCanonicalName());
         if (filterElement == null) return;
 
-        TypeMirror filterType = filterElement.asType();
-
-        // Check if it implements AsyncHttpFilter
-        if (asyncHttpFilterTypeElement != null &&
-            types.isAssignable(filterType, asyncHttpFilterTypeElement.asType())) {
-            asyncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
-        }
-        // Otherwise assume it's HttpFilter (or extends it)
-        else {
-            syncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
-        }
+        syncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
     }
 
     private static CodeBlock buildStringArray(List<String> values) {

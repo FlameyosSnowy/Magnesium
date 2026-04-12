@@ -3,6 +3,7 @@ package net.magnesiumbackend.transport.netty.websocket;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
@@ -22,8 +23,10 @@ public class NettyWebSocketSession implements WebSocketSession {
     private final Channel channel;
     private final Map<String, String> pathVariables;
     private final Map<String, String> headers;
+    private final ChannelHandlerContext ctx;
 
-    public NettyWebSocketSession(Channel channel, Map<String, String> pathVariables, Map<String, String> headers) {
+    public NettyWebSocketSession(Channel channel, Map<String, String> pathVariables, Map<String, String> headers, ChannelHandlerContext ctx) {
+        this.ctx = ctx;
         this.id            = UUID.randomUUID().toString();
         this.channel       = channel;
         this.pathVariables = Collections.unmodifiableMap(pathVariables);
@@ -64,6 +67,16 @@ public class NettyWebSocketSession implements WebSocketSession {
     public void close() {
         if (channel.isActive())
             channel.writeAndFlush(new CloseWebSocketFrame()).addListener(ChannelFutureListener.CLOSE);
+    }
+
+    @Override
+    public void sendTextInIoThread(String text) {
+        ctx.executor().execute(() -> sendText(text));
+    }
+
+    @Override
+    public void sendBinaryInIoThread(byte[] data) {
+        ctx.executor().execute(() -> sendBinary(data));
     }
 
     public Channel channel() { return channel; }

@@ -61,6 +61,24 @@ public class UndertowWebSocketSession implements WebSocketSession {
     }
 
     @Override
+    public void sendTextInIoThread(String text) {
+        try {
+            WebSockets.sendTextBlocking(text, channel);
+        } catch (IOException e) {
+            LOGGER.error("Failed to send text frame", e);
+        }
+    }
+
+    @Override
+    public void sendBinaryInIoThread(byte[] data) {
+        try {
+            WebSockets.sendBinaryBlocking(ByteBuffer.wrap(data), channel);
+        } catch (IOException e) {
+            LOGGER.error("Failed to send binary frame", e);
+        }
+    }
+
+    @Override
     public void close(int code, @NotNull String reason) {
         WebSockets.sendClose(code, reason, channel, null);
     }

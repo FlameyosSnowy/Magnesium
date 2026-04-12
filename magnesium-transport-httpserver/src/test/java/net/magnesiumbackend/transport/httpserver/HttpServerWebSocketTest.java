@@ -7,7 +7,6 @@ import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import net.magnesiumbackend.core.json.DslJsonProvider;
-import net.magnesiumbackend.core.route.RouteDefinition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,10 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -101,6 +97,7 @@ class HttpServerWebSocketTest {
             @Override
             public void onOpen(WebSocketSession session) {
                 sessionRef.set(session);
+                
             }
         });
 
@@ -152,6 +149,7 @@ class HttpServerWebSocketTest {
                 capturedPathVars.set(session.pathVariables());
                 capturedRoomId.set(session.pathVariables().get("roomId"));
                 openLatch.countDown();
+                
             }
         });
 
@@ -179,6 +177,7 @@ class HttpServerWebSocketTest {
             @Override
             public void onOpen(WebSocketSession session) {
                 sessionRef.set(session);
+                
             }
 
             @Override
@@ -188,6 +187,7 @@ class HttpServerWebSocketTest {
                     session.sendText("Echo: " + message.asText());
                     messageLatch.countDown();
                 }
+                
             }
         });
 
@@ -223,6 +223,7 @@ class HttpServerWebSocketTest {
                 } else if (count == 2) {
                     secondClientLatch.countDown();
                 }
+                
             }
         });
 
@@ -250,6 +251,7 @@ class HttpServerWebSocketTest {
             public void onOpen(WebSocketSession session) {
                 capturedHeaders.set(session.headers());
                 openLatch.countDown();
+                
             }
         });
 
@@ -272,6 +274,7 @@ class HttpServerWebSocketTest {
             @Override
             public void onOpen(WebSocketSession session) {
                 // Should not be called for non-WebSocket requests
+                
             }
         });
 
@@ -355,6 +358,7 @@ class HttpServerWebSocketTest {
             @Override
             public void onOpen(WebSocketSession session) {
                 serverSessionRef.set(session);
+                
             }
 
             @Override
@@ -365,6 +369,7 @@ class HttpServerWebSocketTest {
                     // Echo back with prefix to verify server-to-client works
                     session.sendText("Server received: " + message.asText());
                 }
+                
             }
         });
 
@@ -406,6 +411,7 @@ class HttpServerWebSocketTest {
                 openLatch.countDown();
                 // Server sends message immediately after connection
                 session.sendText("Server push message");
+                
             }
 
             @Override
@@ -414,6 +420,7 @@ class HttpServerWebSocketTest {
                     receivedMessage.set(message.asText());
                     messageReceivedLatch.countDown();
                 }
+                
             }
         });
 
@@ -517,7 +524,7 @@ class HttpServerWebSocketTest {
         // Read first byte (FIN, RSV, opcode)
         int b1 = in.read();
         if (b1 == -1) {
-            return null;
+            
         }
 
         // Read second byte (MASK, payload length)

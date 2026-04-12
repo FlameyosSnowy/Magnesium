@@ -8,29 +8,32 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Registry for WebSocket routes supporting both sync and async handlers.
+ * Registry for WebSocket routes using unified {@link WebSocketHandler}.
+ *
+ * <p>The unified handler interface supports both synchronous and asynchronous
+ * operations through its Object return type, resolved at runtime by
+ * {@link WebSocketHandlerWrapper}.</p>
+ *
+ * @see WebSocketHandler
+ * @see WebSocketHandlerWrapper
  */
 public class WebSocketRouteRegistry {
 
     private final RouteTree<WebSocketHandlerWrapper> tree = new RouteTree<>();
 
     /**
-     * Registers a synchronous WebSocket handler.
+     * Registers a WebSocket handler (sync or async).
+     *
+     * <p>Handlers can return:
+     * <ul>
+     *   <li>{@code null} or void for synchronous handling</li>
+     *   <li>{@code CompletableFuture<Void>} for asynchronous handling</li>
+     * </ul></p>
      *
      * @param path The WebSocket path
-     * @param handler The sync handler
+     * @param handler The unified WebSocket handler
      */
     public void register(String path, WebSocketHandler handler) {
-        tree.register(RoutePathTemplate.compile(path), new WebSocketHandlerWrapper(handler));
-    }
-
-    /**
-     * Registers an asynchronous WebSocket handler.
-     *
-     * @param path The WebSocket path
-     * @param handler The async handler
-     */
-    public void registerAsync(String path, AsyncWebSocketHandler handler) {
         tree.register(RoutePathTemplate.compile(path), new WebSocketHandlerWrapper(handler));
     }
 
