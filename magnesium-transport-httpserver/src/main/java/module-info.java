@@ -8,5 +8,8 @@ module magnesium.transport.httpserver {
     provides net.magnesiumbackend.core.http.MagnesiumTransport
         with net.magnesiumbackend.transport.httpserver.HttpServerMagnesiumTransport;
 
+    provides net.magnesiumbackend.core.http.websocket.WebSocketSessionManager
+        with net.magnesiumbackend.transport.httpserver.InMemoryWebSocketSessionManager;
+
     exports net.magnesiumbackend.transport.httpserver;
 }

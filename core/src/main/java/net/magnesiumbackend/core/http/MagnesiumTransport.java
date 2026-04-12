@@ -7,4 +7,6 @@ public interface MagnesiumTransport {
     void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes);
 
     void shutdown();
+
+    int getPort();
 }
