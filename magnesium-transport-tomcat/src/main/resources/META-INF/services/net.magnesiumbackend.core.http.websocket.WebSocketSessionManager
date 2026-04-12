@@ -1,1 +1,1 @@
-net.magnesiumbackend.transport.tomcat.TomcatWebSocketSessionManager
+net.magnesiumbackend.transport.tomcat.websocket.TomcatWebSocketSessionManager

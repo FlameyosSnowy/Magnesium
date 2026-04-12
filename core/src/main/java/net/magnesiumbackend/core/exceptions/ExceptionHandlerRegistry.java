@@ -4,6 +4,7 @@ import io.github.flameyossnowy.velocis.tables.ConcurrentHashTable;
 import io.github.flameyossnowy.velocis.tables.Table;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.RequestContext;
+import net.magnesiumbackend.core.route.ResponseEntityResolver;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteExceptionHandler;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -57,14 +59,14 @@ public final class ExceptionHandlerRegistry {
 
     /**
      * Resolves and invokes the best handler for the exception in the context of a route.
-     *
+     * <p>
      * Resolution order:
      * 1. Route-specific handler, most specific class first.
      * 2. Global handler, most specific class first.
      * 3. Fallback.
      */
     @NotNull
-    public ResponseEntity resolve(
+    public ResponseEntity<?> resolve(
         @Nullable RouteDefinition route,
         @NotNull Throwable exception,
         @NotNull RequestContext request
@@ -75,14 +77,44 @@ public final class ExceptionHandlerRegistry {
             Map<Class<? extends Throwable>, RouteExceptionHandler> handlers = routeHandlers.row(route);
             if (!handlers.isEmpty()) {
                 RouteExceptionHandler h = findMostSpecific(handlers, exceptionType);
-                if (h != null) return h.handle(exception, request);
+                if (h != null) return ResponseEntityResolver.resolveSync(h.handle(exception, request));
             }
         }
 
         RouteExceptionHandler h = findMostSpecific(globalHandlers, exceptionType);
-        if (h != null) return h.handle(exception, request);
+        if (h != null) return ResponseEntityResolver.resolveSync(h.handle(exception, request));
 
-        return fallback.handle(exception, request);
+        return ResponseEntityResolver.resolveSync(fallback.handle(exception, request));
+    }
+
+    /**
+     * Resolves and invokes the best handler for the exception in the context of a route and converts it to a CompletableFuture
+     * <p>
+     * Resolution order:
+     * 1. Route-specific handler, most specific class first.
+     * 2. Global handler, most specific class first.
+     * 3. Fallback.
+     */
+    @NotNull
+    public CompletableFuture<ResponseEntity<?>> resolveAsync(
+        @Nullable RouteDefinition route,
+        @NotNull Throwable exception,
+        @NotNull RequestContext request
+    ) {
+        Class<? extends Throwable> exceptionType = exception.getClass();
+
+        if (route != null) {
+            Map<Class<? extends Throwable>, RouteExceptionHandler> handlers = routeHandlers.row(route);
+            if (!handlers.isEmpty()) {
+                RouteExceptionHandler h = findMostSpecific(handlers, exceptionType);
+                if (h != null) return ResponseEntityResolver.toCompletableFuture(h.handle(exception, request));
+            }
+        }
+
+        RouteExceptionHandler h = findMostSpecific(globalHandlers, exceptionType);
+        if (h != null) return ResponseEntityResolver.toCompletableFuture(h.handle(exception, request));
+
+        return ResponseEntityResolver.toCompletableFuture(fallback.handle(exception, request));
     }
 
     /** Walks class hierarchy to find most specific handler */

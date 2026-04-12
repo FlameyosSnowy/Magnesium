@@ -1,3 +1,5 @@
+import net.magnesiumbackend.transport.tomcat.websocket.TomcatWebSocketSessionManager;
+
 module magnesium.transport.tomcat {
     requires core;
     requires org.apache.tomcat.embed.core;
@@ -10,7 +12,9 @@ module magnesium.transport.tomcat {
         with net.magnesiumbackend.transport.tomcat.TomcatMagnesiumTransport;
 
     provides net.magnesiumbackend.core.http.websocket.WebSocketSessionManager
-        with net.magnesiumbackend.transport.tomcat.TomcatWebSocketSessionManager;
+        with TomcatWebSocketSessionManager;
 
     exports net.magnesiumbackend.transport.tomcat;
+    exports net.magnesiumbackend.transport.tomcat.adapter;
+    exports net.magnesiumbackend.transport.tomcat.websocket;
 }

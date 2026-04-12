@@ -1,4 +1,4 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.websocket;
 
 import jakarta.websocket.Session;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;

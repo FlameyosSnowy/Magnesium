@@ -4,6 +4,12 @@ import net.magnesiumbackend.core.http.response.ResponseEntity;
 
 import java.util.List;
 
+/**
+ * Default implementation of {@link FilterChain} that supports both sync and async filters.
+ *
+ * <p>Uses {@link ResponseEntityResolver} to handle filters returning either ResponseEntity,
+ * CompletableFuture, or raw values.</p>
+ */
 public final class DefaultFilterChain implements FilterChain {
     private final List<HttpFilter> globalFilters;
     private final List<HttpFilter> routeFilters;
@@ -25,11 +31,14 @@ public final class DefaultFilterChain implements FilterChain {
     @Override
     public ResponseEntity<?> next(RequestContext ctx) {
         if (globalIndex < globalFilters.size()) {
-            return globalFilters.get(globalIndex++).handle(ctx, this);
+            Object result = globalFilters.get(globalIndex++).handle(ctx, this);
+            return ResponseEntityResolver.resolveSync(result);
         }
         if (routeIndex < routeFilters.size()) {
-            return routeFilters.get(routeIndex++).handle(ctx, this);
+            Object result = routeFilters.get(routeIndex++).handle(ctx, this);
+            return ResponseEntityResolver.resolveSync(result);
         }
-        return handler.handle(ctx);
+        Object result = handler.handle(ctx);
+        return ResponseEntityResolver.resolveSync(result);
     }
 }

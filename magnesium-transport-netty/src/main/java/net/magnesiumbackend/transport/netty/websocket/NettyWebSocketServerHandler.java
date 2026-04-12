@@ -11,7 +11,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -21,14 +21,14 @@ public class NettyWebSocketServerHandler extends SimpleChannelInboundHandler<Web
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyWebSocketServerHandler.class);
 
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketServerHandshaker handshaker;
     private final NettyWebSocketSession session;
     private final WebSocketSessionManager sessionManager;
     private final String path;
 
     public NettyWebSocketServerHandler(
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketServerHandshaker handshaker,
         NettyWebSocketSession session,
         WebSocketSessionManager sessionManager,
@@ -44,12 +44,12 @@ public class NettyWebSocketServerHandler extends SimpleChannelInboundHandler<Web
     @Override
     public void channelActive(@NotNull ChannelHandlerContext ctx) {
         sessionManager.add(path, session);
-        try {
-            handler.onOpen(session);
-        } catch (Exception e) {
-            LOGGER.error("WebSocket onOpen error", e);
-            ctx.close();
-        }
+        handler.onOpen(session).whenComplete((result, error) -> {
+            if (error != null) {
+                LOGGER.error("WebSocket onOpen error", error);
+                ctx.close();
+            }
+        });
     }
 
     @Override
@@ -66,42 +66,55 @@ public class NettyWebSocketServerHandler extends SimpleChannelInboundHandler<Web
             return; // heartbeat reply, nothing to do
         }
 
-        try {
-            if (frame instanceof TextWebSocketFrame text) {
-                handler.onMessage(session, DefaultWebSocketMessage.ofText(text.text()));
-            } else if (frame instanceof BinaryWebSocketFrame binary) {
-                byte[] bytes = new byte[binary.content().readableBytes()];
-                binary.content().readBytes(bytes);
-                handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes));
-            } else if (frame instanceof ContinuationWebSocketFrame cont) {
-                // surface raw bytes; reassembly is the handler's responsibility if needed
-                byte[] bytes = new byte[cont.content().readableBytes()];
-                cont.content().readBytes(bytes);
-                handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes));
-            }
-        } catch (Exception e) {
-            LOGGER.error("WebSocket onMessage error", e);
+        if (frame instanceof TextWebSocketFrame text) {
+            handler.onMessage(session, DefaultWebSocketMessage.ofText(text.text()))
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        LOGGER.error("WebSocket onMessage error", error);
+                    }
+                });
+        } else if (frame instanceof BinaryWebSocketFrame binary) {
+            byte[] bytes = new byte[binary.content().readableBytes()];
+            binary.content().readBytes(bytes);
+            handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes))
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        LOGGER.error("WebSocket onMessage error", error);
+                    }
+                });
+        } else if (frame instanceof ContinuationWebSocketFrame cont) {
+            // surface raw bytes; reassembly is the handler's responsibility if needed
+            byte[] bytes = new byte[cont.content().readableBytes()];
+            cont.content().readBytes(bytes);
+            handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes))
+                .whenComplete((result, error) -> {
+                    if (error != null) {
+                        LOGGER.error("WebSocket onMessage error", error);
+                    }
+                });
         }
     }
 
     @Override
     public void channelInactive(@NotNull ChannelHandlerContext ctx) {
         sessionManager.remove(path, session);
-        try {
-            handler.onClose(session, 1001, "Connection closed");
-        } catch (Exception e) {
-            LOGGER.error("WebSocket onClose error", e);
-        }
+        handler.onClose(session, 1001, "Connection closed")
+            .whenComplete((result, error) -> {
+                if (error != null) {
+                    LOGGER.error("WebSocket onClose error", error);
+                }
+            });
     }
 
     @Override
     public void exceptionCaught(@NotNull ChannelHandlerContext ctx, Throwable cause) {
         LOGGER.error("WebSocket channel error", cause);
-        try {
-            handler.onError(session, cause);
-        } catch (Exception e) {
-            LOGGER.error("WebSocket onError handler threw", e);
-        }
-        ctx.close();
+        handler.onError(session, cause)
+            .whenComplete((result, error) -> {
+                if (error != null) {
+                    LOGGER.error("WebSocket onError handler threw", error);
+                }
+                ctx.close();
+            });
     }
 }

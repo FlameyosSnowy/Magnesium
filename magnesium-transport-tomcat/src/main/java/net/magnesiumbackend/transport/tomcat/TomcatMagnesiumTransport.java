@@ -4,6 +4,8 @@ import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
+import net.magnesiumbackend.transport.tomcat.adapter.TomcatSslAdapter;
+import net.magnesiumbackend.transport.tomcat.websocket.TomcatWebSocketInitializer;
 import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.connector.Connector;
@@ -17,6 +19,8 @@ import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import jakarta.servlet.ServletContext;
 import jakarta.websocket.server.ServerContainer;
@@ -52,6 +56,9 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
 
         tomcat.getService().addConnector(connector);
 
+        Executor executor = application.executor();
+        tomcat.getConnector().getProtocolHandler().setExecutor(executor);
+
         Context context = tomcat.addContext("", new File(".").getAbsolutePath());
 
         context.addServletContainerInitializer(new WsSci(), null);
@@ -61,7 +68,8 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
             application.httpServer().globalFilters(),
             application.exceptionHandlerRegistry(),
             application.messageConverterRegistry(),
-            application.securityHeadersFilter()
+            application.securityHeadersFilter(),
+            application.executor()
         );
         tomcat.addServlet("", "magnesiumServlet", servlet);
         context.addServletMappingDecoded("/*", "magnesiumServlet");

@@ -1,8 +1,16 @@
 package net.magnesiumbackend.transport.netty.handler;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http2.*;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.headers.Slice;
@@ -118,12 +126,18 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
         );
 
         RequestContext ctxObj   = new RequestContext(request);
-        ResponseEntity<?> responseEntity =
-            definition.execute(ctxObj, globalFilters, exceptionHandlerRegistry);
-
-        if (securityHeadersFilter != null) securityHeadersFilter.applyTo(responseEntity);
-
-        sendResponse(ctx, responseEntity, request);
+        definition.executeAsync(ctxObj, globalFilters, exceptionHandlerRegistry)
+            .whenComplete((responseEntity, throwable) -> {
+                if (throwable != null) {
+                    LOGGER.error("Error processing request", throwable);
+                    ctx.executor().execute(() -> sendError(ctx, 500, "Internal Server Error"));
+                    return;
+                }
+                if (securityHeadersFilter != null) {
+                    securityHeadersFilter.applyTo(responseEntity);
+                }
+                ctx.executor().execute(() -> sendResponse(ctx, responseEntity, request));
+            });
     }
 
     private void sendResponse(
@@ -170,7 +184,7 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
         byte[] body = message.getBytes(StandardCharsets.UTF_8);
         Http2Headers headers = new DefaultHttp2Headers()
             .status(String.valueOf(status))
-            .setInt("content-length", body.length);
+            .setInt("Content-Length", body.length);
         ctx.write(new DefaultHttp2HeadersFrame(headers, false));
         ByteBuf buf = ctx.alloc().buffer(body.length).writeBytes(body);
         ctx.writeAndFlush(new DefaultHttp2DataFrame(buf, true));

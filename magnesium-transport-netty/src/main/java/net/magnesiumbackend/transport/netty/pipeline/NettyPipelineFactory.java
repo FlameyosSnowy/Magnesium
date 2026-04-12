@@ -20,6 +20,7 @@ import net.magnesiumbackend.transport.netty.handler.NettyHttpServerHandler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * Central pipeline factory — all pipeline construction lives here.
@@ -38,6 +39,8 @@ public final class NettyPipelineFactory {
     private final WebSocketRouteRegistry    webSocketRouteRegistry;
     private final WebSocketSessionManager   sessionManager;
     private final SecurityHeadersFilter     securityHeadersFilter;
+    @Nullable
+    private final Executor requestExecutor;
     private final int                       maxContentLength;
 
     @Nullable
@@ -51,12 +54,13 @@ public final class NettyPipelineFactory {
         WebSocketRouteRegistry   webSocketRouteRegistry,
         WebSocketSessionManager  sessionManager,
         @Nullable SslConfig      sslConfig,
-        SecurityHeadersFilter    securityHeadersFilter
+        SecurityHeadersFilter    securityHeadersFilter,
+        @Nullable Executor requestExecutor
     ) {
         this(
             httpRouteRegistry, globalFilters, exceptionHandlerRegistry,
             messageConverterRegistry, webSocketRouteRegistry, sessionManager,
-            sslConfig, securityHeadersFilter, DEFAULT_MAX_CONTENT_LENGTH
+            sslConfig, securityHeadersFilter, requestExecutor, DEFAULT_MAX_CONTENT_LENGTH
         );
     }
 
@@ -69,7 +73,7 @@ public final class NettyPipelineFactory {
         WebSocketSessionManager  sessionManager,
         @Nullable SslConfig      sslConfig,
         SecurityHeadersFilter    securityHeadersFilter,
-        int                      maxContentLength
+        @Nullable Executor requestExecutor, int                      maxContentLength
     ) {
         this.httpRouteRegistry        = httpRouteRegistry;
         this.globalFilters            = globalFilters;
@@ -79,6 +83,7 @@ public final class NettyPipelineFactory {
         this.sessionManager           = sessionManager;
         this.sslConfig                = sslConfig;
         this.securityHeadersFilter    = securityHeadersFilter;
+        this.requestExecutor = requestExecutor;
         this.maxContentLength         = maxContentLength;
     }
 
@@ -118,7 +123,8 @@ public final class NettyPipelineFactory {
             webSocketRouteRegistry,
             sessionManager,
             sslConfig,
-            securityHeadersFilter
+            securityHeadersFilter,
+            requestExecutor
         );
     }
 

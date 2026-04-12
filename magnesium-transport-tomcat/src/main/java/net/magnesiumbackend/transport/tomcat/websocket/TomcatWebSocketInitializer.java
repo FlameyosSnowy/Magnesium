@@ -1,7 +1,7 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.websocket;
 
 import jakarta.websocket.server.ServerEndpointConfig;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.route.RouteTree;
@@ -22,7 +22,7 @@ public class TomcatWebSocketInitializer {
     }
 
     public void initialize(ServerContainer serverContainer) throws DeploymentException {
-        for (RouteTree.RouteEntry<WebSocketHandler> entry : routeRegistry.entries()) {
+        for (RouteTree.RouteEntry<WebSocketHandlerWrapper> entry : routeRegistry.entries()) {
             String path = entry.path();
 
             ServerEndpointConfig config = ServerEndpointConfig.Builder

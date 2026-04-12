@@ -7,6 +7,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.*;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
+import net.magnesiumbackend.core.http.TransportExecutionModel;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
 import net.magnesiumbackend.transport.netty.adapter.NettySslAdapter;
@@ -44,7 +45,8 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
             application.httpServer().webSocketRouteRegistry(),
             application.httpServer().webSocketSessionManager(),
             sslConfig,
-            application.securityHeadersFilter()
+            application.securityHeadersFilter(),
+            application.executor()
         );
 
         try {
@@ -100,5 +102,10 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
             throw new IllegalStateException("Server not started");
         }
         return ((InetSocketAddress) socketAddress).getPort();
+    }
+
+    @Override
+    public TransportExecutionModel executionModel() {
+        return TransportExecutionModel.NON_BLOCKING;
     }
 }

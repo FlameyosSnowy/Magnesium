@@ -3,7 +3,7 @@ package net.magnesiumbackend.transport.httpserver;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +20,7 @@ import java.util.Map;
 public class MagnesiumWebSocket extends WebSocket {
     private static final Logger LOGGER = LoggerFactory.getLogger(MagnesiumWebSocket.class);
 
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
     private final HttpServerWebSocketSession session;
@@ -30,7 +30,7 @@ public class MagnesiumWebSocket extends WebSocket {
 
     public MagnesiumWebSocket(
         HttpExchange exchange,
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
         Map<String, String> pathVariables
@@ -55,7 +55,7 @@ public class MagnesiumWebSocket extends WebSocket {
     public void onOpen() {
         sessionManager.add(path, session);
         try {
-            handler.onOpen(session);
+            handler.onOpen(session).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onOpen error", e);
         }
@@ -68,13 +68,13 @@ public class MagnesiumWebSocket extends WebSocket {
                 byte[] chunk = frame.getBinaryPayload();
                 binaryBuffer = concat(binaryBuffer, chunk);
                 if (frame.isFin()) {
-                    handler.onMessage(session, DefaultWebSocketMessage.ofBinary(binaryBuffer));
+                    handler.onMessage(session, DefaultWebSocketMessage.ofBinary(binaryBuffer)).join();
                     binaryBuffer = new byte[0];
                 }
             } else {
                 textBuffer.append(frame.getTextPayload());
                 if (frame.isFin()) {
-                    handler.onMessage(session, DefaultWebSocketMessage.ofText(textBuffer.toString()));
+                    handler.onMessage(session, DefaultWebSocketMessage.ofText(textBuffer.toString())).join();
                     textBuffer = new StringBuilder();
                 }
             }
@@ -87,7 +87,7 @@ public class MagnesiumWebSocket extends WebSocket {
     protected void onClose(CloseCode code, String reason, boolean initiatedByRemote) {
         sessionManager.remove(path, session);
         try {
-            handler.onClose(session, code.getValue(), reason);
+            handler.onClose(session, code.getValue(), reason).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onClose error", e);
         }
@@ -101,7 +101,7 @@ public class MagnesiumWebSocket extends WebSocket {
     protected void onException(IOException e) {
         LOGGER.error("WebSocket channel error", e);
         try {
-            handler.onError(session, e);
+            handler.onError(session, e).join();
         } catch (Exception ex) {
             LOGGER.error("WebSocket onError handler threw", ex);
         }

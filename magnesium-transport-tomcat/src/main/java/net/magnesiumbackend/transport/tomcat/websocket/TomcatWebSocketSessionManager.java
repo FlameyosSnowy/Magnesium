@@ -1,4 +1,4 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.websocket;
 
 import io.github.flameyossnowy.velocis.tables.ConcurrentHashTable;
 import io.github.flameyossnowy.velocis.tables.Table;

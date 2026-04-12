@@ -1,4 +1,4 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.websocket;
 
 import jakarta.websocket.CloseReason;
 import jakarta.websocket.Endpoint;
@@ -6,7 +6,7 @@ import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.MessageHandler;
 import jakarta.websocket.Session;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ import java.util.Map;
 public class TomcatWebSocketEndpoint extends Endpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(TomcatWebSocketEndpoint.class);
 
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
     private final Map<String, String> pathVariables;
@@ -24,7 +24,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
     private TomcatWebSocketSession session;
 
     public TomcatWebSocketEndpoint(
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
         Map<String, String> pathVariables
@@ -44,7 +44,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
         jakartaSession.addMessageHandler(String.class,
             (MessageHandler.Whole<String>) text -> {
                 try {
-                    handler.onMessage(session, DefaultWebSocketMessage.ofText(text));
+                    handler.onMessage(session, DefaultWebSocketMessage.ofText(text)).join();
                 } catch (Exception e) {
                     LOGGER.error("WebSocket onMessage error", e);
                 }
@@ -53,14 +53,14 @@ public class TomcatWebSocketEndpoint extends Endpoint {
         jakartaSession.addMessageHandler(byte[].class,
             (MessageHandler.Whole<byte[]>) bytes -> {
                 try {
-                    handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes));
+                    handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes)).join();
                 } catch (Exception e) {
                     LOGGER.error("WebSocket onMessage error", e);
                 }
             });
 
         try {
-            handler.onOpen(session);
+            handler.onOpen(session).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onOpen error", e);
         }
@@ -74,7 +74,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
                 session,
                 closeReason.getCloseCode().getCode(),
                 closeReason.getReasonPhrase()
-            );
+            ).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onClose error", e);
         }
@@ -84,7 +84,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
     public void onError(Session jakartaSession, Throwable cause) {
         LOGGER.error("WebSocket channel error", cause);
         try {
-            handler.onError(session, cause);
+            handler.onError(session, cause).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onError handler threw", e);
         }

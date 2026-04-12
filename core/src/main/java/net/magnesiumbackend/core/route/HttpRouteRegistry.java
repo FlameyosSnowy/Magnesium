@@ -8,11 +8,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Registry for HTTP routes using unified handler and filter interfaces.
+ *
+ * <p>Both handlers and filters can return either synchronous results (ResponseEntity or raw values)
+ * or asynchronous results (CompletableFuture). The actual type is resolved at runtime.</p>
+ */
 public class HttpRouteRegistry {
 
     private final EnumMap<HttpMethod, RouteTree<RouteDefinition>> trees =
         new EnumMap<>(HttpMethod.class);
 
+    /**
+     * Registers a route.
+     *
+     * @param method HTTP method
+     * @param template Route path template
+     * @param handler Route handler (can return ResponseEntity, raw value, or CompletableFuture)
+     * @param filters List of filters (each can return ResponseEntity, raw value, or CompletableFuture)
+     */
     public void register(HttpMethod method,
                          RoutePathTemplate template,
                          HttpRouteHandler handler,

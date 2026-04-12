@@ -3,7 +3,7 @@ package net.magnesiumbackend.transport.undertow.websocket;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -16,13 +16,13 @@ import java.util.Map;
 
 public class UndertowWebSocketCallback implements WebSocketConnectionCallback {
     private static final Logger LOGGER = LoggerFactory.getLogger(UndertowWebSocketCallback.class);
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
     private final Map<String, String> pathVariables;
 
     public UndertowWebSocketCallback(
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
         Map<String, String> pathVariables
@@ -46,7 +46,7 @@ public class UndertowWebSocketCallback implements WebSocketConnectionCallback {
         channel.resumeReceives();
 
         try {
-            handler.onOpen(session);
+            handler.onOpen(session).join();
         } catch (Exception e) {
             try {
                 channel.close();

@@ -6,7 +6,7 @@ import io.undertow.websockets.core.BufferedTextMessage;
 import io.undertow.websockets.core.StreamSourceFrameChannel;
 import io.undertow.websockets.core.WebSocketChannel;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +17,13 @@ import java.nio.ByteBuffer;
 public class UndertowWebSocketListener extends AbstractReceiveListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(UndertowWebSocketListener.class);
 
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final UndertowWebSocketSession session;
     private final String path;
 
     public UndertowWebSocketListener(
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         UndertowWebSocketSession session,
         String path
@@ -37,7 +37,7 @@ public class UndertowWebSocketListener extends AbstractReceiveListener {
     @Override
     protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
         try {
-            handler.onMessage(session, DefaultWebSocketMessage.ofText(message.getData()));
+            handler.onMessage(session, DefaultWebSocketMessage.ofText(message.getData())).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onMessage error", e);
         }
@@ -58,7 +58,7 @@ public class UndertowWebSocketListener extends AbstractReceiveListener {
                 offset += len;
             }
             pooled.close();
-            handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes));
+            handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes)).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onMessage error", e);
         }
@@ -68,7 +68,7 @@ public class UndertowWebSocketListener extends AbstractReceiveListener {
     protected void onClose(WebSocketChannel webSocketChannel, StreamSourceFrameChannel channel) {
         sessionManager.remove(path, session);
         try {
-            handler.onClose(session, 1000, "Connection closed");
+            handler.onClose(session, 1000, "Connection closed").join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onClose error", e);
         }
@@ -78,7 +78,7 @@ public class UndertowWebSocketListener extends AbstractReceiveListener {
     protected void onError(WebSocketChannel channel, Throwable error) {
         LOGGER.error("WebSocket channel error", error);
         try {
-            handler.onError(session, error);
+            handler.onError(session, error).join();
         } catch (Exception e) {
             LOGGER.error("WebSocket onError handler threw", e);
         }

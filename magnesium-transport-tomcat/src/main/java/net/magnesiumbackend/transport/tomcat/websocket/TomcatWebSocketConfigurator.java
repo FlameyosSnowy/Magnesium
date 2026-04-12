@@ -1,18 +1,18 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.websocket;
 
 import jakarta.websocket.server.ServerEndpointConfig;
-import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
 import java.util.Map;
 
 public class TomcatWebSocketConfigurator extends ServerEndpointConfig.Configurator {
-    private final WebSocketHandler handler;
+    private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
 
     public TomcatWebSocketConfigurator(
-        WebSocketHandler handler,
+        WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path
     ) {

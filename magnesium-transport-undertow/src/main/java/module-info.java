@@ -10,7 +10,7 @@ module magnesium.transport.undertow {
         with net.magnesiumbackend.transport.undertow.UndertowMagnesiumTransport;
 
     provides net.magnesiumbackend.core.http.websocket.WebSocketSessionManager
-        with net.magnesiumbackend.transport.undertow;
+        with net.magnesiumbackend.transport.undertow.websocket.UndertowWebSocketSessionManager;
 
     exports net.magnesiumbackend.transport.undertow;
     exports net.magnesiumbackend.transport.undertow.websocket;

@@ -1,4 +1,4 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.adapter;
 
 import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 

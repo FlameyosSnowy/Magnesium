@@ -14,7 +14,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.Executor;
 
 public class UndertowMagnesiumTransport implements MagnesiumTransport {
     private Undertow server;
@@ -22,8 +22,9 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
     @Override
     public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
         SslConfig sslConfig = application.sslConfig();
-        Undertow.Builder serverBuilder = Undertow.builder()
-            .addHttpListener(port, "0.0.0.0")
+
+        Undertow.Builder serverBuilder = Undertow.builder();
+        serverBuilder.addHttpListener(port, "0.0.0.0")
             .setHandler(new UndertowHttpHandler(
                 routes,
                 application.httpServer().globalFilters(),
@@ -31,8 +32,8 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
                 application.messageConverterRegistry(),
                 application.httpServer().webSocketRouteRegistry(),
                 application.httpServer().webSocketSessionManager(),
-                sslConfig,
-                application.securityHeadersFilter()
+                application.securityHeadersFilter(),
+                application.executor()
             ));
 
         if (sslConfig != null) {

@@ -3,6 +3,7 @@ package net.magnesiumbackend.core.http;
 import net.magnesiumbackend.core.WebSocketSessionManagerLoader;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
+import net.magnesiumbackend.core.http.websocket.AsyncWebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteBuilder;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
@@ -192,6 +193,18 @@ public class MagnesiumHttpServer {
 
         public Builder websocket(String path, WebSocketHandler handler) {
             websocketRoutes.register(path, handler);
+            return this;
+        }
+
+        /**
+         * Registers an asynchronous WebSocket handler.
+         *
+         * @param path The WebSocket path
+         * @param handler The async WebSocket handler
+         * @return this builder, for chaining
+         */
+        public Builder websocketAsync(String path, AsyncWebSocketHandler handler) {
+            websocketRoutes.registerAsync(path, handler);
             return this;
         }
 

@@ -1,4 +1,4 @@
-package net.magnesiumbackend.transport.tomcat;
+package net.magnesiumbackend.transport.tomcat.adapter;
 
 import jakarta.servlet.http.HttpServletRequest;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;

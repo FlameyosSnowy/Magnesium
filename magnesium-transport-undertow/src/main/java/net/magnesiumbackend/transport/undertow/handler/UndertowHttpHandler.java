@@ -2,7 +2,6 @@ package net.magnesiumbackend.transport.undertow.handler;
 
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
-import io.undertow.util.HeaderValues;
 import io.undertow.util.Headers;
 import net.magnesiumbackend.core.http.DefaultRequest;
 import net.magnesiumbackend.core.http.response.HttpMethod;
@@ -20,22 +19,20 @@ import net.magnesiumbackend.core.route.RequestContext;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteTree;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
-import net.magnesiumbackend.core.security.SslConfig;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.transport.undertow.adapter.UndertowHeaderAdapter;
 import net.magnesiumbackend.transport.undertow.adapter.UndertowResponseAdapter;
 import net.magnesiumbackend.transport.undertow.websocket.UndertowWebSocketCallback;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class UndertowHttpHandler implements HttpHandler {
     private static final String NOT_FOUND = "Not Found";
@@ -47,9 +44,8 @@ public class UndertowHttpHandler implements HttpHandler {
     private final MessageConverterRegistry messageConverterRegistry;
     private final WebSocketRouteRegistry webSocketRouteRegistry;
     private final WebSocketSessionManager sessionManager;
-    @Nullable
-    private final SslConfig sslConfig;
     private final SecurityHeadersFilter securityHeadersFilter;
+    private final Executor executor;
 
     public UndertowHttpHandler(
         HttpRouteRegistry httpRouteRegistry,
@@ -58,8 +54,8 @@ public class UndertowHttpHandler implements HttpHandler {
         MessageConverterRegistry messageConverterRegistry,
         WebSocketRouteRegistry webSocketRouteRegistry,
         WebSocketSessionManager sessionManager,
-        SslConfig sslConfig,
-        SecurityHeadersFilter securityHeadersFilter
+        SecurityHeadersFilter securityHeadersFilter,
+        Executor executor
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
@@ -67,8 +63,8 @@ public class UndertowHttpHandler implements HttpHandler {
         this.messageConverterRegistry = messageConverterRegistry;
         this.webSocketRouteRegistry = webSocketRouteRegistry;
         this.sessionManager = sessionManager;
-        this.sslConfig = sslConfig;
         this.securityHeadersFilter = securityHeadersFilter;
+        this.executor = executor;
     }
 
     @Override
@@ -90,14 +86,6 @@ public class UndertowHttpHandler implements HttpHandler {
             HttpMethod method = HttpMethod.valueOf(exchange.getRequestMethod().toString());
             String path = exchange.getRequestPath();
             HttpVersion version = exchange.isHttp11() ? HttpVersion.HTTP_1_1 : HttpVersion.HTTP_1_0;
-
-            Map<String, String> requestHeaders = new HashMap<>();
-            for (HeaderValues headerValues : exchange.getRequestHeaders()) {
-                String headerName = headerValues.getHeaderName().toString();
-                if (!headerValues.isEmpty()) {
-                    requestHeaders.put(headerName, headerValues.getFirst());
-                }
-            }
 
             Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute = httpRouteRegistry.find(method, path);
 
@@ -130,18 +118,38 @@ public class UndertowHttpHandler implements HttpHandler {
             );
 
             RequestContext ctxObj = new RequestContext(request);
-            ResponseEntity<?> responseEntity = definition.execute(ctxObj, globalFilters, exceptionHandlerRegistry);
+            definition.executeAsync(ctxObj, globalFilters, exceptionHandlerRegistry, executor)
+                .thenAccept((responseEntity) -> {
+                    if (securityHeadersFilter != null) {
+                        securityHeadersFilter.applyTo(responseEntity);
+                    }
 
-            if (this.securityHeadersFilter != null) this.securityHeadersFilter.applyTo(responseEntity);
+                    exchange.getIoThread().execute(() -> {
+                        try {
+                            HttpResponseWriter writer = new HttpResponseWriter(messageConverterRegistry);
 
-            HttpResponseWriter httpResponseWriter = new HttpResponseWriter(this.messageConverterRegistry);
-            httpResponseWriter.write(responseEntity, new UndertowResponseAdapter(exchange));
+                            writer.write(responseEntity, new UndertowResponseAdapter(exchange));
+
+                        } catch (Exception e) {
+                            exchange.setStatusCode(500);
+                            exchange.getResponseSender().send("Internal Server Error");
+                        }
+                    });
+                })
+                .exceptionally(e -> {
+                    exchange.getIoThread().execute(() -> {
+                        exchange.setStatusCode(500);
+                        exchange.getResponseSender().send("Internal Server Error");
+                    });
+                    return null;
+                });
         } catch (Exception e) {
             LOGGER.error(e.getMessage(), e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("Internal Server Error");
         }
     }
+
 
     private String readBody(HttpServerExchange exchange) throws IOException {
         String contentLengthHeader = exchange.getRequestHeaders().getFirst(Headers.CONTENT_LENGTH);

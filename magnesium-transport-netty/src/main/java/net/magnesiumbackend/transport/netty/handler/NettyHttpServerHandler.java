@@ -28,6 +28,7 @@ import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
+import net.magnesiumbackend.core.route.ResponseEntityResolver;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.route.RouteTree;
 import net.magnesiumbackend.core.security.CorrelationIdFilter;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumMethod;
 import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumVersion;
@@ -71,6 +73,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
     private final SslConfig sslConfig;
     private final boolean securedWebSocket;
     private final SecurityHeadersFilter securityHeadersFilter;
+    @Nullable
+    private final Executor requestExecutor;
 
     public NettyHttpServerHandler(
         HttpRouteRegistry httpRouteRegistry,
@@ -81,7 +85,9 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         WebSocketSessionManager sessionManager,
         @Nullable
         SslConfig sslConfig,
-        SecurityHeadersFilter securityHeadersFilter
+        SecurityHeadersFilter securityHeadersFilter,
+        @Nullable
+        Executor requestExecutor
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
@@ -92,6 +98,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         this.sslConfig = sslConfig;
         this.securedWebSocket = sslConfig != null && sslConfig.isWebSocketSecured();
         this.securityHeadersFilter = securityHeadersFilter;
+        this.requestExecutor = requestExecutor;
     }
 
     @Override
@@ -111,72 +118,96 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute =
             httpRouteRegistry.find(httpMethod, rawPath);
 
-        FullHttpResponse nettyResp = matchedRoute
-            .map(matched -> {
-                String content = nettyReq.content().toString(StandardCharsets.UTF_8);
+        if (matchedRoute.isEmpty()) {
+            // No route matched - send 404 immediately
+            FullHttpResponse notFoundResp = new DefaultFullHttpResponse(
+                nettyReq.protocolVersion(),
+                HttpResponseStatus.NOT_FOUND,
+                Unpooled.copiedBuffer(NOT_FOUND)
+            );
+            notFoundResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, notFoundResp.content().readableBytes());
+            if (HttpUtil.isKeepAlive(nettyReq)) {
+                notFoundResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                ctx.writeAndFlush(notFoundResp);
+            } else {
+                ctx.writeAndFlush(notFoundResp).addListener(ChannelFutureListener.CLOSE);
+            }
+            return;
+        }
 
-                Map<String, String> queryParams = HttpUtils.parseQueryString(queryString);
+        // Route matched - process asynchronously
+        var matched = matchedRoute.get();
+        String content = nettyReq.content().toString(StandardCharsets.UTF_8);
+        Map<String, String> queryParams = HttpUtils.parseQueryString(queryString);
 
-                RouteDefinition definition = matched.handler();
-                HttpHeaderIndex headerIndex =
-                    NettyHeaderAdapter.from(nettyReq.headers());
-                Request request = new DefaultRequest(
-                    definition.path(),
-                    content,
-                    asMagnesiumVersion(nettyReq.protocolVersion()),
-                    httpMethod,
-                    queryParams,
-                    matched.pathVariables(),
-                    definition,
-                    headerIndex
-                );
+        RouteDefinition definition = matched.handler();
+        HttpHeaderIndex headerIndex = NettyHeaderAdapter.from(nettyReq.headers());
+        Request request = new DefaultRequest(
+            definition.path(),
+            content,
+            asMagnesiumVersion(nettyReq.protocolVersion()),
+            httpMethod,
+            queryParams,
+            matched.pathVariables(),
+            definition,
+            headerIndex
+        );
 
-                RequestContext ctxObj = new RequestContext(request);
-                ResponseEntity<?> responseEntity =
-                    definition.execute(ctxObj, this.globalFilters, exceptionHandlerRegistry);
+        RequestContext ctxObj = new RequestContext(request);
 
-                if (this.securityHeadersFilter != null) this.securityHeadersFilter.applyTo(responseEntity);
+        // Execute route asynchronously using Netty's event loop
+        definition.executeAsync(ctxObj, this.globalFilters, exceptionHandlerRegistry, requestExecutor)
+            .whenComplete((responseEntity, throwable) -> {
+                if (throwable != null) {
+                    LOGGER.error("Error processing request", throwable);
+                    FullHttpResponse errorResp = new DefaultFullHttpResponse(
+                        nettyReq.protocolVersion(),
+                        HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                        Unpooled.copiedBuffer("Internal Server Error".getBytes(StandardCharsets.UTF_8))
+                    );
+                    errorResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorResp.content().readableBytes());
+                    ctx.executor().execute(() -> {
+                        if (HttpUtil.isKeepAlive(nettyReq)) {
+                            errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                            ctx.writeAndFlush(errorResp);
+                        } else {
+                            ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
+                        }
+                    });
+                    return;
+                }
+
+                if (this.securityHeadersFilter != null) {
+                    this.securityHeadersFilter.applyTo(responseEntity);
+                }
 
                 HttpResponseWriter writer = new HttpResponseWriter(this.messageConverterRegistry);
                 DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
                     nettyReq.protocolVersion(),
                     HttpResponseStatus.valueOf(responseEntity.statusCode())
                 );
+
                 try {
                     Slice correlationId = request.header(CorrelationIdFilter.HEADER);
-
                     if (correlationId != null && correlationId.len() > 0) {
-                        resp.headers().set(
-                            CorrelationIdFilter.HEADER,
-                            correlationId.materialize()
-                        );
+                        resp.headers().set(CorrelationIdFilter.HEADER, correlationId.materialize());
                     }
-
                     writer.write(responseEntity, new NettyResponseAdapter(resp));
                 } catch (IOException e) {
-                    throw new IllegalStateException(e);
+                    LOGGER.error("Error writing response", e);
+                    ctx.close();
+                    return;
                 }
 
-
-                return resp;
-            })
-            .orElseGet(() -> new DefaultFullHttpResponse(
-                nettyReq.protocolVersion(),
-                HttpResponseStatus.NOT_FOUND,
-                Unpooled.copiedBuffer(NOT_FOUND)
-            ));
-
-        nettyResp.headers().setInt(
-            HttpHeaderNames.CONTENT_LENGTH,
-            nettyResp.content().readableBytes()
-        );
-
-        if (HttpUtil.isKeepAlive(nettyReq)) {
-            nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(nettyResp);
-        } else {
-            ctx.writeAndFlush(nettyResp).addListener(ChannelFutureListener.CLOSE);
-        }
+                ctx.executor().execute(() -> {
+                    if (HttpUtil.isKeepAlive(nettyReq)) {
+                        resp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                        ctx.writeAndFlush(resp);
+                    } else {
+                        ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
+                    }
+                });
+            });
     }
 
     @Override
