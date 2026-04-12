@@ -41,4 +41,6 @@ module core {
     exports net.magnesiumbackend.core.headers;
     exports net.magnesiumbackend.core.utils;
     exports net.magnesiumbackend.core.http.response;
+    exports net.magnesiumbackend.core.cancellation;
+    exports net.magnesiumbackend.core.backpressure;
 }

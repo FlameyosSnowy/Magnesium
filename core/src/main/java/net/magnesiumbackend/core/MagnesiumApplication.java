@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core;
 
+import net.magnesiumbackend.core.backpressure.BackpressureConfig;
+import net.magnesiumbackend.core.backpressure.RejectionResponse;
 import net.magnesiumbackend.core.config.MagnesiumConfigurationManager;
 import net.magnesiumbackend.core.event.EventBus;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
@@ -23,6 +25,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -69,6 +72,10 @@ public final class MagnesiumApplication {
     private final ExceptionHandlerRegistry exceptionHandlerRegistry;
     private final MessageConverterRegistry messageConverterRegistry;
     private final SslConfig sslConfig;
+    private final Duration defaultTimeout;
+
+    @Nullable
+    private final BackpressureConfig backpressureConfig;
 
     @Nullable
     private final RequestSecurityRegistry requestSecurityRegistry;
@@ -87,6 +94,8 @@ public final class MagnesiumApplication {
 
         this.requestSecurityRegistry = builder.requestSecurityRegistry;
         this.sslConfig = builder.sslConfig;
+        this.defaultTimeout = builder.defaultTimeout;
+        this.backpressureConfig = builder.backpressureConfig;
 
         this.onStart = builder.onStart != null ? builder.onStart : _ -> {};
         this.onExit  = builder.onExit  != null ? builder.onExit  : _ -> {};
@@ -112,12 +121,21 @@ public final class MagnesiumApplication {
         return executor;
     }
 
+    @Nullable
+    public BackpressureConfig backpressureConfig() {
+        return backpressureConfig;
+    }
+
     public JsonProvider jsonProvider() {
         return jsonProvider;
     }
 
     public MagnesiumHttpServer httpServer() {
         return httpServer;
+    }
+
+    public Duration defaultTimeout() {
+        return defaultTimeout;
     }
 
     public ServiceRegistry serviceRegistry() {
@@ -182,12 +200,45 @@ public final class MagnesiumApplication {
         private ServiceRegistry serviceRegistry;
         private MagnesiumConfigurationManager configurationManager = MagnesiumConfigurationManager.builder().build();
         private RequestSecurityRegistry requestSecurityRegistry;
+        private Duration defaultTimeout = Duration.ofSeconds(30);
+        private BackpressureConfig backpressureConfig;
 
         private Builder() {}
 
         /** Sets the executor used for route handling and event listeners. */
         public Builder execution(Executor executor) {
             this.executor = executor;
+            return this;
+        }
+
+        /**
+         * Enables bounded-queue backpressure on the request executor.
+         *
+         * <p>When the queue is full incoming requests are rejected immediately on the I/O thread
+         * using the configured {@link RejectionResponse}, no worker thread is consumed.
+         *
+         * <pre>{@code
+         * .backpressure(bp -> bp
+         *     .queueCapacity(512)
+         *     .onReject(RejectionResponse.of(503)
+         *         .withBody("Server busy, please retry")
+         *         .withRetryAfter(Duration.ofSeconds(5))))
+         * }</pre>
+         *
+         * <p>If this method is never called backpressure is disabled and the delegate executor
+         * receives tasks without any queue bound.
+         */
+        @Contract("_ -> this")
+        public Builder backpressure(@NotNull Consumer<BackpressureConfig.Builder> configure) {
+            BackpressureConfig.Builder b = BackpressureConfig.builder();
+            configure.accept(b);
+            this.backpressureConfig = b.build();
+            return this;
+        }
+
+        /** Sets the default request timeout. Defaults to 30 seconds. */
+        public Builder timeout(Duration timeout) {
+            this.defaultTimeout = timeout;
             return this;
         }
 

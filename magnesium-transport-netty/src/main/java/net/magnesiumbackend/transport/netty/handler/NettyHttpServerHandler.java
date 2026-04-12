@@ -1,45 +1,25 @@
 package net.magnesiumbackend.transport.netty.handler;
 
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpUtil;
-import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
-import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
+import io.netty.channel.*;
+import io.netty.handler.codec.http.*;
+import net.magnesiumbackend.core.backpressure.QueueRejectedError;
+import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
+import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.http.DefaultRequest;
-import net.magnesiumbackend.core.http.response.HttpMethod;
-import net.magnesiumbackend.core.http.response.HttpResponseWriter;
-import net.magnesiumbackend.core.http.response.HttpUtils;
-import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.response.ResponseEntity;
+import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
+import net.magnesiumbackend.core.http.response.*;
+import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
-import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
-import net.magnesiumbackend.core.route.HttpRouteRegistry;
-import net.magnesiumbackend.core.route.HttpFilter;
-import net.magnesiumbackend.core.route.RequestContext;
-import net.magnesiumbackend.core.route.ResponseEntityResolver;
-import net.magnesiumbackend.core.route.RouteDefinition;
-import net.magnesiumbackend.core.route.RouteTree;
-import net.magnesiumbackend.core.security.CorrelationIdFilter;
+import net.magnesiumbackend.core.route.*;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
 import net.magnesiumbackend.core.security.SslConfig;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.transport.netty.adapter.NettyHeaderAdapter;
 import net.magnesiumbackend.transport.netty.adapter.NettyResponseAdapter;
-import net.magnesiumbackend.transport.netty.websocket.NettyWebSocketServerHandler;
-import net.magnesiumbackend.transport.netty.websocket.NettyWebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -47,21 +27,22 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumMethod;
 import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumVersion;
 
 public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-    private static final byte[] NOT_FOUND = "Not Found".getBytes(StandardCharsets.UTF_8);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyHttpServerHandler.class);
-    private static final String WEB_SOCKET_SECURED = "wss";
-    private static final String WEB_SOCKET_UNSECURED = "ws";
+
+    private static final byte[] NOT_FOUND = "Not Found".getBytes(StandardCharsets.UTF_8);
 
     private final HttpRouteRegistry httpRouteRegistry;
     private final List<HttpFilter> globalFilters;
@@ -69,12 +50,10 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
     private final MessageConverterRegistry messageConverterRegistry;
     private final WebSocketRouteRegistry webSocketRouteRegistry;
     private final WebSocketSessionManager sessionManager;
-    @Nullable
-    private final SslConfig sslConfig;
-    private final boolean securedWebSocket;
+    @Nullable private final SslConfig sslConfig;
     private final SecurityHeadersFilter securityHeadersFilter;
-    @Nullable
-    private final Executor requestExecutor;
+    @Nullable private final Executor requestExecutor;
+    private final Duration timeout;
 
     public NettyHttpServerHandler(
         HttpRouteRegistry httpRouteRegistry,
@@ -83,11 +62,10 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         MessageConverterRegistry messageConverterRegistry,
         WebSocketRouteRegistry webSocketRouteRegistry,
         WebSocketSessionManager sessionManager,
-        @Nullable
-        SslConfig sslConfig,
+        @Nullable SslConfig sslConfig,
         SecurityHeadersFilter securityHeadersFilter,
-        @Nullable
-        Executor requestExecutor
+        @Nullable Executor requestExecutor,
+        Duration timeout
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
@@ -96,179 +74,182 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         this.webSocketRouteRegistry = webSocketRouteRegistry;
         this.sessionManager = sessionManager;
         this.sslConfig = sslConfig;
-        this.securedWebSocket = sslConfig != null && sslConfig.isWebSocketSecured();
         this.securityHeadersFilter = securityHeadersFilter;
         this.requestExecutor = requestExecutor;
+        this.timeout = timeout;
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, @NotNull FullHttpRequest nettyReq) {
-        if (isWebSocketUpgrade(nettyReq)) {
-            handleWebSocketUpgrade(ctx, nettyReq);
-            return;
-        }
+    protected void channelRead0(ChannelHandlerContext ctx, @NotNull FullHttpRequest req) {
+        HttpMethod method = asMagnesiumMethod(req.method());
 
-        HttpMethod httpMethod = asMagnesiumMethod(nettyReq.method());
-
-        String uri = nettyReq.uri();
+        String uri = req.uri();
         int qIndex = uri.indexOf('?');
-        String rawPath = qIndex > 0 ? uri.substring(0, qIndex) : uri;
-        String queryString = qIndex > 0 ? uri.substring(qIndex + 1) : "";
 
-        Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute =
-            httpRouteRegistry.find(httpMethod, rawPath);
+        String path = qIndex > 0 ? uri.substring(0, qIndex) : uri;
+        String query = qIndex > 0 ? uri.substring(qIndex + 1) : "";
 
-        if (matchedRoute.isEmpty()) {
-            // No route matched - send 404 immediately
-            FullHttpResponse notFoundResp = new DefaultFullHttpResponse(
-                nettyReq.protocolVersion(),
-                HttpResponseStatus.NOT_FOUND,
-                Unpooled.copiedBuffer(NOT_FOUND)
-            );
-            notFoundResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, notFoundResp.content().readableBytes());
-            if (HttpUtil.isKeepAlive(nettyReq)) {
-                notFoundResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                ctx.writeAndFlush(notFoundResp);
-            } else {
-                ctx.writeAndFlush(notFoundResp).addListener(ChannelFutureListener.CLOSE);
-            }
+        Optional<RouteTree.RouteMatch<RouteDefinition>> match =
+            httpRouteRegistry.find(method, path);
+
+        if (match.isEmpty()) {
+            writeNotFound(ctx, req);
             return;
         }
 
-        // Route matched - process asynchronously
-        var matched = matchedRoute.get();
-        String content = nettyReq.content().toString(StandardCharsets.UTF_8);
-        Map<String, String> queryParams = HttpUtils.parseQueryString(queryString);
+        RouteDefinition def = match.get().handler();
 
-        RouteDefinition definition = matched.handler();
-        HttpHeaderIndex headerIndex = NettyHeaderAdapter.from(nettyReq.headers());
+        String body = req.content().toString(StandardCharsets.UTF_8);
+        Map<String, String> queryParams = HttpUtils.parseQueryString(query);
+
+        HttpHeaderIndex headers = NettyHeaderAdapter.from(req.headers());
+
         Request request = new DefaultRequest(
-            definition.path(),
-            content,
-            asMagnesiumVersion(nettyReq.protocolVersion()),
-            httpMethod,
+            def.path(),
+            body,
+            asMagnesiumVersion(req.protocolVersion()),
+            method,
             queryParams,
-            matched.pathVariables(),
-            definition,
-            headerIndex
+            match.get().pathVariables(),
+            def,
+            headers
         );
 
-        RequestContext ctxObj = new RequestContext(request);
+        RequestContext context = new RequestContext(request);
 
-        // Execute route asynchronously using Netty's event loop
-        definition.executeAsync(ctxObj, this.globalFilters, exceptionHandlerRegistry, requestExecutor)
-            .whenComplete((responseEntity, throwable) -> {
-                if (throwable != null) {
-                    LOGGER.error("Error processing request", throwable);
-                    FullHttpResponse errorResp = new DefaultFullHttpResponse(
-                        nettyReq.protocolVersion(),
-                        HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                        Unpooled.copiedBuffer("Internal Server Error".getBytes(StandardCharsets.UTF_8))
-                    );
-                    errorResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorResp.content().readableBytes());
-                    ctx.executor().execute(() -> {
-                        if (HttpUtil.isKeepAlive(nettyReq)) {
-                            errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                            ctx.writeAndFlush(errorResp);
-                        } else {
-                            ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
-                        }
-                    });
+        execute(ctx, req, context, def);
+    }
+
+    private void execute(
+        ChannelHandlerContext ctx,
+        FullHttpRequest req,
+        RequestContext context,
+        RouteDefinition def
+    ) {
+
+        SimpleCancellationToken token = new SimpleCancellationToken();
+
+        ctx.channel().closeFuture().addListener(f -> token.cancel());
+
+        context.setCancellationToken(token);
+
+        CompletableFuture<ResponseEntity<?>> future;
+
+        try {
+            future = def.executeAsync(context, globalFilters, exceptionHandlerRegistry, requestExecutor)
+                .orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (QueueRejectedError rejected) {
+            writeRejected(ctx, req, rejected);
+            return;
+        }
+
+        future.whenComplete((res, err) -> {
+            token.cancel();
+
+            if (err != null) {
+                if (err instanceof java.util.concurrent.TimeoutException) {
+                    writeTimeout(ctx, req);
                     return;
                 }
+                writeError(ctx, req, err);
+                return;
+            }
 
-                if (this.securityHeadersFilter != null) {
-                    this.securityHeadersFilter.applyTo(responseEntity);
-                }
+            writeSuccess(ctx, req, context, res);
+        });
+    }
 
-                HttpResponseWriter writer = new HttpResponseWriter(this.messageConverterRegistry);
-                DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
-                    nettyReq.protocolVersion(),
-                    HttpResponseStatus.valueOf(responseEntity.statusCode())
-                );
+    private void writeSuccess(
+        ChannelHandlerContext ctx,
+        FullHttpRequest req,
+        RequestContext context,
+        ResponseEntity<?> entity
+    ) {
+        try {
+            if (securityHeadersFilter != null) {
+                securityHeadersFilter.applyTo(entity);
+            }
 
-                try {
-                    Slice correlationId = request.header(CorrelationIdFilter.HEADER);
-                    if (correlationId != null && correlationId.len() > 0) {
-                        resp.headers().set(CorrelationIdFilter.HEADER, correlationId.materialize());
-                    }
-                    writer.write(responseEntity, new NettyResponseAdapter(resp));
-                } catch (IOException e) {
-                    LOGGER.error("Error writing response", e);
-                    ctx.close();
-                    return;
-                }
+            HttpResponseWriter writer = new HttpResponseWriter(messageConverterRegistry);
 
-                ctx.executor().execute(() -> {
-                    if (HttpUtil.isKeepAlive(nettyReq)) {
-                        resp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-                        ctx.writeAndFlush(resp);
-                    } else {
-                        ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
-                    }
-                });
-            });
+            DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
+                req.protocolVersion(),
+                HttpResponseStatus.valueOf(entity.statusCode())
+            );
+
+            Slice correlation = context.request().header("X-Correlation-Id");
+            if (correlation != null && correlation.len() > 0) {
+                resp.headers().set("X-Correlation-Id", correlation.materialize());
+            }
+
+            writer.write(entity, new NettyResponseAdapter(resp));
+
+            write(ctx, req, resp);
+
+        } catch (IOException e) {
+            writeError(ctx, req, e);
+        }
+    }
+
+    private void writeError(ChannelHandlerContext ctx, FullHttpRequest req, Throwable t) {
+        LOGGER.error("Request failed", t);
+
+        FullHttpResponse resp = new DefaultFullHttpResponse(
+            req.protocolVersion(),
+            HttpResponseStatus.INTERNAL_SERVER_ERROR,
+            Unpooled.copiedBuffer("Internal Server Error", StandardCharsets.UTF_8)
+        );
+
+        write(ctx, req, resp);
+    }
+
+    private void writeTimeout(ChannelHandlerContext ctx, FullHttpRequest req) {
+        FullHttpResponse resp = new DefaultFullHttpResponse(
+            req.protocolVersion(),
+            HttpResponseStatus.REQUEST_TIMEOUT,
+            Unpooled.copiedBuffer("Request Timeout", StandardCharsets.UTF_8)
+        );
+
+        write(ctx, req, resp);
+    }
+
+    private void writeRejected(ChannelHandlerContext ctx, FullHttpRequest req, QueueRejectedError err) {
+        FullHttpResponse resp = new DefaultFullHttpResponse(
+            req.protocolVersion(),
+            HttpResponseStatus.SERVICE_UNAVAILABLE,
+            Unpooled.copiedBuffer("Server Overloaded", StandardCharsets.UTF_8)
+        );
+
+        write(ctx, req, resp);
+    }
+
+    private void write(ChannelHandlerContext ctx, FullHttpRequest req, FullHttpResponse resp) {
+        resp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, resp.content().readableBytes());
+
+        ctx.executor().execute(() -> {
+            if (HttpUtil.isKeepAlive(req)) {
+                ctx.writeAndFlush(resp);
+            } else {
+                ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
+            }
+        });
+    }
+
+    private void writeNotFound(ChannelHandlerContext ctx, FullHttpRequest req) {
+        FullHttpResponse resp = new DefaultFullHttpResponse(
+            req.protocolVersion(),
+            HttpResponseStatus.NOT_FOUND,
+            Unpooled.copiedBuffer(NOT_FOUND)
+        );
+
+        resp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, NOT_FOUND.length);
+
+        write(ctx, req, resp);
     }
 
     @Override
     public void exceptionCaught(@NotNull ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.error(cause.getMessage(), cause);
+        LOGGER.error("Unhandled pipeline error", cause);
         ctx.close();
-    }
-
-    private static boolean isWebSocketUpgrade(FullHttpRequest req) {
-        return "websocket".equalsIgnoreCase(req.headers().get(HttpHeaderNames.UPGRADE));
-    }
-
-    private void handleWebSocketUpgrade(ChannelHandlerContext ctx, FullHttpRequest req) {
-        String uri     = req.uri();
-        int qIndex     = uri.indexOf('?');
-        String rawPath = qIndex > 0 ? uri.substring(0, qIndex) : uri;
-
-        var match = webSocketRouteRegistry.match(rawPath);
-        if (match.isEmpty()) {
-            DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
-                req.protocolVersion(),
-                HttpResponseStatus.NOT_FOUND,
-                Unpooled.copiedBuffer("No WebSocket route: " + rawPath, StandardCharsets.UTF_8)
-            );
-            ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
-            return;
-        }
-
-        var matched = match.get();
-        HttpHeaders nettyHttpHeaders = req.headers();
-        String scheme = securedWebSocket ? WEB_SOCKET_SECURED : WEB_SOCKET_UNSECURED;
-        String wsUrl  = scheme + "://" + req.headers().get(HttpHeaderNames.HOST) + rawPath;
-
-        WebSocketServerHandshakerFactory factory =
-            new WebSocketServerHandshakerFactory(wsUrl, null, true);
-
-        WebSocketServerHandshaker handshaker = factory.newHandshaker(req);
-        if (handshaker == null) {
-            WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
-            return;
-        }
-
-        Map<String, String> headers = new HashMap<>(nettyHttpHeaders.size());
-        nettyHttpHeaders.iteratorAsString().forEachRemaining(e -> headers.put(e.getKey(), e.getValue()));
-
-        NettyWebSocketSession session = new NettyWebSocketSession(
-            ctx.channel(), matched.pathVariables(), headers, ctx
-        );
-
-        handshaker.handshake(ctx.channel(), req).addListener(future -> {
-            if (!future.isSuccess()) {
-                ctx.fireExceptionCaught(future.cause());
-                return;
-            }
-            ctx.pipeline().replace(
-                this,
-                "websocket-handler",
-                new NettyWebSocketServerHandler(
-                    matched.handler(), handshaker, session, sessionManager, rawPath
-                )
-            );
-        });
     }
 }

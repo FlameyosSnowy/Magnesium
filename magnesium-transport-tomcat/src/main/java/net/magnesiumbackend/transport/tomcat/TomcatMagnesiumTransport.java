@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.tomcat;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
@@ -56,7 +57,7 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
 
         tomcat.getService().addConnector(connector);
 
-        Executor executor = application.executor();
+        Executor executor = BackpressureExecutorResolver.resolve(application);
         tomcat.getConnector().getProtocolHandler().setExecutor(executor);
 
         Context context = tomcat.addContext("", new File(".").getAbsolutePath());
@@ -69,7 +70,8 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
             application.exceptionHandlerRegistry(),
             application.messageConverterRegistry(),
             application.securityHeadersFilter(),
-            application.executor()
+            executor,
+            application.defaultTimeout()
         );
         tomcat.addServlet("", "magnesiumServlet", servlet);
         context.addServletMappingDecoded("/*", "magnesiumServlet");

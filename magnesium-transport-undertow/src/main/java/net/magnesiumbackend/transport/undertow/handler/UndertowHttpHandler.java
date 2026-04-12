@@ -12,6 +12,7 @@ import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
+import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.HttpFilter;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +48,7 @@ public class UndertowHttpHandler implements HttpHandler {
     private final WebSocketSessionManager sessionManager;
     private final SecurityHeadersFilter securityHeadersFilter;
     private final Executor executor;
+    private final Duration defaultTimeout;
 
     public UndertowHttpHandler(
         HttpRouteRegistry httpRouteRegistry,
@@ -55,7 +58,8 @@ public class UndertowHttpHandler implements HttpHandler {
         WebSocketRouteRegistry webSocketRouteRegistry,
         WebSocketSessionManager sessionManager,
         SecurityHeadersFilter securityHeadersFilter,
-        Executor executor
+        Executor executor,
+        Duration defaultTimeout
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
@@ -65,6 +69,7 @@ public class UndertowHttpHandler implements HttpHandler {
         this.sessionManager = sessionManager;
         this.securityHeadersFilter = securityHeadersFilter;
         this.executor = executor;
+        this.defaultTimeout = defaultTimeout != null ? defaultTimeout : Duration.ofSeconds(30);
     }
 
     @Override
@@ -118,7 +123,19 @@ public class UndertowHttpHandler implements HttpHandler {
             );
 
             RequestContext ctxObj = new RequestContext(request);
-            definition.executeAsync(ctxObj, globalFilters, exceptionHandlerRegistry, executor)
+            ctxObj.setTimeout(this.defaultTimeout);
+
+            // Create cancellation token for this request
+            SimpleCancellationToken cancellationToken = new SimpleCancellationToken();
+            ctxObj.setCancellationToken(cancellationToken);
+
+            // Hook into exchange close for cancellation
+            exchange.addExchangeCompleteListener((ex, nextListener) -> {
+                cancellationToken.cancel();
+                nextListener.proceed();
+            });
+
+            definition.executeAsync(ctxObj, globalFilters, exceptionHandlerRegistry, executor, ctxObj.timeout())
                 .thenAccept((responseEntity) -> {
                     if (securityHeadersFilter != null) {
                         securityHeadersFilter.applyTo(responseEntity);

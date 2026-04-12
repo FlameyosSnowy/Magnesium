@@ -19,6 +19,7 @@ import net.magnesiumbackend.transport.netty.handler.Http2ServerHandler;
 import net.magnesiumbackend.transport.netty.handler.NettyHttpServerHandler;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -39,12 +40,10 @@ public final class NettyPipelineFactory {
     private final WebSocketRouteRegistry    webSocketRouteRegistry;
     private final WebSocketSessionManager   sessionManager;
     private final SecurityHeadersFilter     securityHeadersFilter;
-    @Nullable
-    private final Executor requestExecutor;
+    @Nullable private final Executor        requestExecutor;
+    private final Duration                  timeout;
     private final int                       maxContentLength;
-
-    @Nullable
-    private final SslConfig sslConfig;
+    @Nullable private final SslConfig       sslConfig;
 
     public NettyPipelineFactory(
         HttpRouteRegistry        httpRouteRegistry,
@@ -55,12 +54,14 @@ public final class NettyPipelineFactory {
         WebSocketSessionManager  sessionManager,
         @Nullable SslConfig      sslConfig,
         SecurityHeadersFilter    securityHeadersFilter,
-        @Nullable Executor requestExecutor
+        @Nullable Executor       requestExecutor,
+        Duration                 timeout
     ) {
         this(
             httpRouteRegistry, globalFilters, exceptionHandlerRegistry,
             messageConverterRegistry, webSocketRouteRegistry, sessionManager,
-            sslConfig, securityHeadersFilter, requestExecutor, DEFAULT_MAX_CONTENT_LENGTH
+            sslConfig, securityHeadersFilter, requestExecutor, timeout,
+            DEFAULT_MAX_CONTENT_LENGTH
         );
     }
 
@@ -73,7 +74,9 @@ public final class NettyPipelineFactory {
         WebSocketSessionManager  sessionManager,
         @Nullable SslConfig      sslConfig,
         SecurityHeadersFilter    securityHeadersFilter,
-        @Nullable Executor requestExecutor, int                      maxContentLength
+        @Nullable Executor       requestExecutor,
+        Duration                 timeout,
+        int                      maxContentLength
     ) {
         this.httpRouteRegistry        = httpRouteRegistry;
         this.globalFilters            = globalFilters;
@@ -83,7 +86,8 @@ public final class NettyPipelineFactory {
         this.sessionManager           = sessionManager;
         this.sslConfig                = sslConfig;
         this.securityHeadersFilter    = securityHeadersFilter;
-        this.requestExecutor = requestExecutor;
+        this.requestExecutor          = requestExecutor;
+        this.timeout                  = timeout;
         this.maxContentLength         = maxContentLength;
     }
 
@@ -101,14 +105,12 @@ public final class NettyPipelineFactory {
         }
     }
 
-    /** HTTP/1.1: codec → aggregator → Magnesium handler */
     public void configureHttp11(ChannelPipeline pipeline) {
         pipeline.addLast(new HttpServerCodec());
         pipeline.addLast(new HttpObjectAggregator(maxContentLength));
         pipeline.addLast(buildHttp11Handler());
     }
 
-    /** HTTP/2: frame codec → multiplexer → Magnesium handler per stream */
     public void configureHttp2(ChannelPipeline pipeline) {
         pipeline.addLast(Http2FrameCodecBuilder.forServer().build());
         pipeline.addLast(new Http2MultiplexHandler(buildHttp2Handler()));
@@ -124,7 +126,8 @@ public final class NettyPipelineFactory {
             sessionManager,
             sslConfig,
             securityHeadersFilter,
-            requestExecutor
+            requestExecutor,
+            timeout
         );
     }
 
@@ -134,20 +137,23 @@ public final class NettyPipelineFactory {
             globalFilters,
             exceptionHandlerRegistry,
             messageConverterRegistry,
-            securityHeadersFilter
+            securityHeadersFilter,
+            requestExecutor,
+            timeout
         );
     }
 
     private ApplicationProtocolNegotiationHandler buildAlpnNegotiator() {
         NettyPipelineFactory factory = this;
-
         return new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
             @Override
-            protected void configurePipeline(io.netty.channel.ChannelHandlerContext ctx,
-                                             String protocol) {
+            protected void configurePipeline(
+                io.netty.channel.ChannelHandlerContext ctx,
+                String protocol
+            ) {
                 switch (protocol) {
-                    case ApplicationProtocolNames.HTTP_2    -> factory.configureHttp2(ctx.pipeline());
-                    case ApplicationProtocolNames.HTTP_1_1  -> factory.configureHttp11(ctx.pipeline());
+                    case ApplicationProtocolNames.HTTP_2   -> factory.configureHttp2(ctx.pipeline());
+                    case ApplicationProtocolNames.HTTP_1_1 -> factory.configureHttp11(ctx.pipeline());
                     default -> throw new IllegalStateException(
                         "[Magnesium] Unknown ALPN protocol: " + protocol
                     );

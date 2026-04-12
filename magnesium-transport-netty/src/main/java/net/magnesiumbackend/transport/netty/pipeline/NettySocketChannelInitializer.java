@@ -9,6 +9,7 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
 import io.netty.handler.ssl.SslContext;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
@@ -61,7 +62,8 @@ public class NettySocketChannelInitializer extends ChannelInitializer<SocketChan
             application.httpServer().webSocketSessionManager(),
             sslConfig,
             application.securityHeadersFilter(),
-            application.executor()
+            BackpressureExecutorResolver.resolve(application),
+            application.defaultTimeout()
         ));
     }
 }

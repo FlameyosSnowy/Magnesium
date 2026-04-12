@@ -3,6 +3,7 @@ package net.magnesiumbackend.transport.httpserver;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
@@ -42,7 +43,7 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
                 server = HttpServer.create(new InetSocketAddress(port), 0);
             }
 
-            Executor executor = application.executor();
+            Executor executor = BackpressureExecutorResolver.resolve(application);
             server.setExecutor(Objects.requireNonNullElseGet(executor, Executors::newVirtualThreadPerTaskExecutor));
 
             server.createContext("/", new MagnesiumHttpHandler(
@@ -50,7 +51,9 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
                 application.httpServer().globalFilters(),
                 application.exceptionHandlerRegistry(),
                 application.messageConverterRegistry(),
-                application.securityHeadersFilter()
+                application.securityHeadersFilter(),
+                executor,
+                application.defaultTimeout()
             ));
 
             registerWebSocketRoutes(application);

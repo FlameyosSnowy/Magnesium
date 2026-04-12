@@ -2,6 +2,7 @@ package net.magnesiumbackend.transport.undertow;
 
 import io.undertow.Undertow;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.security.SslConfig;
@@ -32,7 +33,8 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
                 application.httpServer().webSocketRouteRegistry(),
                 application.httpServer().webSocketSessionManager(),
                 application.securityHeadersFilter(),
-                application.executor()
+                BackpressureExecutorResolver.resolve(application),
+                application.defaultTimeout()
             ));
 
         if (sslConfig != null) {

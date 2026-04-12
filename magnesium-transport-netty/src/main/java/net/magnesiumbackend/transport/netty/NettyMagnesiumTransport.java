@@ -4,8 +4,9 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.SslContext;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.TransportExecutionModel;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
@@ -18,10 +19,12 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.Executor;
 
 import static io.netty.channel.nio.NioIoHandler.newFactory;
 
 public class NettyMagnesiumTransport implements MagnesiumTransport {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyMagnesiumTransport.class);
 
     private EventLoopGroup bossGroup;
@@ -33,9 +36,14 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
         bossGroup  = new MultiThreadIoEventLoopGroup(newFactory());
         workerGroup = new MultiThreadIoEventLoopGroup(newFactory());
 
-        SslConfig sslConfig = application.sslConfig();
+        SslConfig  sslConfig = application.sslConfig();
+        SslContext nettyCtx  = buildSslContext(sslConfig);
 
-        SslContext nettyCtx = buildSslContext(sslConfig);
+        // When BackpressureConfig is present this returns a BoundedBackpressureExecutor
+        // wrapping the user's executor. Otherwise, it returns the raw executor unchanged.
+        // NettyPipelineFactory (and ultimately NettyHttpServerHandler) receive this
+        // executor, no other transport code needs to know about backpressure.
+        Executor requestExecutor = BackpressureExecutorResolver.resolve(application);
 
         NettyPipelineFactory factory = new NettyPipelineFactory(
             routes,
@@ -46,7 +54,8 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
             application.httpServer().webSocketSessionManager(),
             sslConfig,
             application.securityHeadersFilter(),
-            application.executor()
+            requestExecutor,
+            application.defaultTimeout()
         );
 
         try {
@@ -89,19 +98,15 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
         try {
             return NettySslAdapter.toNettyContext(sslConfig);
         } catch (Exception e) {
-            throw new IllegalStateException(
-                "[Magnesium] Failed to initialize Netty SSL context.", e
-            );
+            throw new IllegalStateException("[Magnesium] Failed to initialize Netty SSL context.", e);
         }
     }
 
     @Override
     public int getPort() {
-        SocketAddress socketAddress = channel.localAddress();
-        if (socketAddress == null) {
-            throw new IllegalStateException("Server not started");
-        }
-        return ((InetSocketAddress) socketAddress).getPort();
+        SocketAddress addr = channel.localAddress();
+        if (addr == null) throw new IllegalStateException("Server not started");
+        return ((InetSocketAddress) addr).getPort();
     }
 
     @Override

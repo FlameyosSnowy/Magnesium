@@ -9,6 +9,7 @@ import net.magnesiumbackend.core.http.response.HttpResponseWriter;
 import net.magnesiumbackend.core.http.response.HttpUtils;
 import net.magnesiumbackend.core.http.response.HttpVersion;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
+import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.HttpFilter;
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -38,6 +40,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
     private final MessageConverterRegistry messageConverterRegistry;
     private final SecurityHeadersFilter securityHeadersFilter;
     private final Executor executor;
+    private final Duration defaultTimeout;
 
     public MagnesiumTomcatServlet(
         HttpRouteRegistry httpRouteRegistry,
@@ -45,7 +48,8 @@ public class MagnesiumTomcatServlet extends HttpServlet {
         ExceptionHandlerRegistry exceptionHandlerRegistry,
         MessageConverterRegistry messageConverterRegistry,
         SecurityHeadersFilter securityHeadersFilter,
-        Executor executor
+        Executor executor,
+        Duration defaultTimeout
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
@@ -53,6 +57,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
         this.messageConverterRegistry = messageConverterRegistry;
         this.securityHeadersFilter = securityHeadersFilter;
         this.executor = executor;
+        this.defaultTimeout = defaultTimeout != null ? defaultTimeout : Duration.ofSeconds(30);
     }
 
     @Override
@@ -93,12 +98,21 @@ public class MagnesiumTomcatServlet extends HttpServlet {
         );
 
         RequestContext ctxObj = new RequestContext(request);
+        ctxObj.setTimeout(this.defaultTimeout);
+
+        // Create cancellation token for this request
+        SimpleCancellationToken cancellationToken = new SimpleCancellationToken();
+        ctxObj.setCancellationToken(cancellationToken);
+
+        // Note: Tomcat doesn't provide easy async cancellation hooks
+        // The token is mainly for handler code to check ctx.cancellationToken().isCancelled()
 
         definition.executeAsync(
                 ctxObj,
                 globalFilters,
                 exceptionHandlerRegistry,
-                executor
+                executor,
+                ctxObj.timeout()
             )
             .whenComplete((responseEntity, throwable) -> {
 

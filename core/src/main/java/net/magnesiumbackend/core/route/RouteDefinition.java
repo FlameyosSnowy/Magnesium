@@ -4,12 +4,15 @@ import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * A single registered route binding a method + route to a handler.
@@ -80,34 +83,63 @@ public record RouteDefinition(
         ExceptionHandlerRegistry routeExceptionHandler,
         Executor requestExecutor
     ) {
-        return CompletableFuture.supplyAsync(() -> {
+        return executeAsync(ctx, globalFilters, routeExceptionHandler, requestExecutor, ctx.timeout());
+    }
 
-                try {
-                    List<HttpFilter> allFilters = new ArrayList<>(globalFilters);
-                    allFilters.addAll(filters);
+    public CompletableFuture<ResponseEntity<?>> executeAsync(
+        RequestContext ctx,
+        List<HttpFilter> globalFilters,
+        ExceptionHandlerRegistry routeExceptionHandler,
+        Executor requestExecutor,
+        Duration timeout
+    ) {
+        CompletableFuture<ResponseEntity<?>> future = CompletableFuture.supplyAsync(() -> {
+            // Check cancellation before starting
+            ctx.cancellationToken().throwIfCancelled();
 
-                    FilterChain chain = createAsyncFilterChain(
-                        allFilters,
-                        handler,
-                        ctx,
-                        routeExceptionHandler
-                    );
+            try {
+                List<HttpFilter> allFilters = new ArrayList<>(globalFilters);
+                allFilters.addAll(filters);
 
-                    return chain.next(ctx);
+                FilterChain chain = createAsyncFilterChain(
+                    allFilters,
+                    handler,
+                    ctx,
+                    routeExceptionHandler
+                );
 
-                } catch (Throwable t) {
-                    throw new CompletionException(t);
-                }
+                return chain.next(ctx);
 
-            }, requestExecutor != null ? requestExecutor : ForkJoinPool.commonPool())
-            .thenCompose(ResponseEntityResolver::toCompletableFuture)
-            .exceptionallyCompose(throwable ->
-                routeExceptionHandler.resolveAsync(
-                    ctx.request().routeDefinition(),
-                    throwable,
-                    ctx
-                )
-            );
+            } catch (Throwable t) {
+                throw new CompletionException(t);
+            }
+
+        }, requestExecutor != null ? requestExecutor : ForkJoinPool.commonPool())
+        .thenCompose(ResponseEntityResolver::toCompletableFuture)
+        .exceptionallyCompose(throwable ->
+            routeExceptionHandler.resolveAsync(
+                ctx.request().routeDefinition(),
+                throwable,
+                ctx
+            )
+        );
+
+        // Apply timeout if specified
+        if (timeout != null && !timeout.isNegative() && !timeout.isZero()) {
+            return future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
+                .exceptionallyCompose(throwable -> {
+                    if (throwable instanceof TimeoutException) {
+                        return routeExceptionHandler.resolveAsync(
+                            ctx.request().routeDefinition(),
+                            new TimeoutException("Request timed out after " + timeout),
+                            ctx
+                        );
+                    }
+                    return CompletableFuture.failedFuture(throwable);
+                });
+        }
+
+        return future;
     }
 
     public CompletableFuture<ResponseEntity<?>> executeAsync(

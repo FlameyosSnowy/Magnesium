@@ -2,6 +2,7 @@ package net.magnesiumbackend.core.route;
 
 import net.magnesiumbackend.core.auth.Principal;
 import net.magnesiumbackend.core.auth.exceptions.AuthenticationException;
+import net.magnesiumbackend.core.cancellation.CancellationToken;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.headers.CookieIndex;
 import net.magnesiumbackend.core.headers.Slice;
@@ -9,6 +10,7 @@ import net.magnesiumbackend.core.security.CorrelationIdFilter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,8 +24,41 @@ public final class RequestContext {
 
     private CookieIndex cookies;
 
+    private CancellationToken cancellationToken = CancellationToken.uncancellable();
+
+    private Duration timeout = Duration.ofSeconds(30); // Default timeout
+
     public RequestContext(Request request) {
         this.request = request;
+    }
+
+    /**
+     * Sets the cancellation token for this request.
+     * Called by transports before invoking handlers/filters.
+     */
+    public void setCancellationToken(CancellationToken token) {
+        this.cancellationToken = token != null ? token : CancellationToken.uncancellable();
+    }
+
+    /**
+     * Returns the cancellation token for checking request cancellation status.
+     */
+    public CancellationToken cancellationToken() {
+        return cancellationToken;
+    }
+
+    /**
+     * Sets the timeout duration for this request.
+     */
+    public void setTimeout(Duration timeout) {
+        this.timeout = timeout != null ? timeout : Duration.ofSeconds(30);
+    }
+
+    /**
+     * Returns the timeout duration for this request.
+     */
+    public Duration timeout() {
+        return timeout;
     }
 
     public Request request() {

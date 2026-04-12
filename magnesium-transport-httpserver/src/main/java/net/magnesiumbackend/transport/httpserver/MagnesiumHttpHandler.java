@@ -10,6 +10,7 @@ import net.magnesiumbackend.core.http.response.HttpUtils;
 import net.magnesiumbackend.core.http.response.HttpVersion;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
+import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.route.HttpFilter;
@@ -24,9 +25,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 public class MagnesiumHttpHandler implements HttpHandler {
     private static final byte[] NOT_FOUND = "Not Found".getBytes(StandardCharsets.UTF_8);
@@ -37,18 +40,25 @@ public class MagnesiumHttpHandler implements HttpHandler {
     private final ExceptionHandlerRegistry exceptionHandlerRegistry;
     private final MessageConverterRegistry messageConverterRegistry;
     private final SecurityHeadersFilter securityHeadersFilter;
+    private final Executor executor;
+    private final Duration defaultTimeout;
 
     public MagnesiumHttpHandler(
         HttpRouteRegistry httpRouteRegistry,
         List<HttpFilter> globalFilters,
         ExceptionHandlerRegistry exceptionHandlerRegistry,
-        MessageConverterRegistry messageConverterRegistry, SecurityHeadersFilter securityHeadersFilter
+        MessageConverterRegistry messageConverterRegistry,
+        SecurityHeadersFilter securityHeadersFilter,
+        Executor executor,
+        Duration defaultTimeout
     ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.globalFilters = globalFilters;
         this.exceptionHandlerRegistry = exceptionHandlerRegistry;
         this.messageConverterRegistry = messageConverterRegistry;
         this.securityHeadersFilter = securityHeadersFilter;
+        this.executor = executor;
+        this.defaultTimeout = defaultTimeout != null ? defaultTimeout : Duration.ofSeconds(30);
     }
 
     @Override
@@ -103,6 +113,15 @@ public class MagnesiumHttpHandler implements HttpHandler {
             );
 
             RequestContext ctxObj = new RequestContext(request);
+            ctxObj.setTimeout(this.defaultTimeout);
+
+            // Create cancellation token for this request
+            SimpleCancellationToken cancellationToken = new SimpleCancellationToken();
+            ctxObj.setCancellationToken(cancellationToken);
+
+            // Note: JDK HttpServer doesn't provide async cancellation hooks
+            // The token is mainly for handler code to check ctx.cancellationToken().isCancelled()
+
             ResponseEntity<?> responseEntity =
                 definition.execute(ctxObj, globalFilters, exceptionHandlerRegistry);
 
