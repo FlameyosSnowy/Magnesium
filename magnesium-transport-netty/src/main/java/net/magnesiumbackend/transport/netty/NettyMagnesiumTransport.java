@@ -15,6 +15,9 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+
 import static io.netty.channel.nio.NioIoHandler.newFactory;
 
 public class NettyMagnesiumTransport implements MagnesiumTransport {
@@ -22,6 +25,7 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
+    private Channel channel;
 
     @Override
     public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
@@ -54,7 +58,7 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
                     }
                 });
 
-            Channel channel = bootstrap.bind(port).sync().channel();
+            this.channel = bootstrap.bind(port).sync().channel();
             LOGGER.info("[Magnesium] Netty listening on port {} ({})",
                 port, sslConfig != null ? "HTTPS" : "HTTP");
 
@@ -87,5 +91,14 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
                 "[Magnesium] Failed to initialize Netty SSL context.", e
             );
         }
+    }
+
+    @Override
+    public int getPort() {
+        SocketAddress socketAddress = channel.localAddress();
+        if (socketAddress == null) {
+            throw new IllegalStateException("Server not started");
+        }
+        return ((InetSocketAddress) socketAddress).getPort();
     }
 }

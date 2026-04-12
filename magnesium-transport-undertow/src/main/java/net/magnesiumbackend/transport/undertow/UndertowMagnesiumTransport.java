@@ -8,10 +8,13 @@ import net.magnesiumbackend.core.security.SslConfig;
 import net.magnesiumbackend.transport.undertow.adapter.UndertowSslAdapter;
 import net.magnesiumbackend.transport.undertow.handler.UndertowHttpHandler;
 
+import java.net.InetSocketAddress;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
+import java.util.List;
+import java.util.Optional;
 
 public class UndertowMagnesiumTransport implements MagnesiumTransport {
     private Undertow server;
@@ -66,5 +69,18 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
         if (server != null) {
             server.stop();
         }
+    }
+
+    @Override
+    public int getPort() {
+        if (server == null) {
+            throw new IllegalStateException("Server not started");
+        }
+
+        List<Undertow.ListenerInfo> listenerInfo = server.getListenerInfo();
+        if (!listenerInfo.isEmpty()) {
+            return ((InetSocketAddress) listenerInfo.getFirst().getAddress()).getPort();
+        }
+        throw new IllegalStateException("No listeners registered");
     }
 }

@@ -112,4 +112,9 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
             }
         }
     }
+
+    @Override
+    public int getPort() {
+        return tomcat.getConnector().getPort();
+    }
 }

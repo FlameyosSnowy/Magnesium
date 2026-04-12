@@ -4,9 +4,11 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
+import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
+import net.magnesiumbackend.core.route.RoutePathTemplate;
 import net.magnesiumbackend.core.route.RouteTree;
 
 import com.sun.net.httpserver.HttpsConfigurator;
@@ -63,17 +65,28 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
         WebSocketRouteRegistry wsRegistry = application.httpServer().webSocketRouteRegistry();
         WebSocketSessionManager sessionManager = application.httpServer().webSocketSessionManager();
 
-        for (RouteTree.RouteEntry<net.magnesiumbackend.core.http.websocket.WebSocketHandler> entry
-            : wsRegistry.entries()) {
+        for (RouteTree.RouteEntry<WebSocketHandler> entry : wsRegistry.entries()) {
             String path        = entry.path();
             String contextPath = toContextPath(path);
 
-            server.createContext(contextPath, new HttpServerWebSocketHandler(
-                entry.handler(),
-                sessionManager,
-                path,
-                Map.of()
-            ));
+            server.createContext(contextPath, exchange -> {
+                System.out.println("[DEBUG] WebSocket request: path=" + path + ", contextPath=" + contextPath + ", requestURI=" + exchange.getRequestURI().getPath());
+                String requestPath = exchange.getRequestURI().getPath();
+                RoutePathTemplate template = RoutePathTemplate.compile(path);
+                System.out.println("[DEBUG] Template: " + java.util.Arrays.toString(template.literals()) + ", " + java.util.Arrays.toString(template.varNames()));
+                Map<String, String> pathVars = template.match(requestPath);
+                System.out.println("[DEBUG] Match result: " + pathVars);
+                if (pathVars == null) {
+                    pathVars = Map.of();
+                }
+
+                new HttpServerWebSocketHandler(
+                    entry.handler(),
+                    sessionManager,
+                    path,
+                    pathVars
+                ).handle(exchange);
+            });
         }
     }
 
@@ -87,5 +100,13 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
     @Override
     public void shutdown() {
         if (server != null) server.stop(0);
+    }
+
+    @Override
+    public int getPort() {
+        if (server == null) {
+            throw new IllegalStateException("Server not started yet");
+        }
+        return server.getAddress().getPort();
     }
 }
