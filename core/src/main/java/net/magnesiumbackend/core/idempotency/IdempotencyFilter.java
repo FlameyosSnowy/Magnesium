@@ -11,13 +11,54 @@ import net.magnesiumbackend.core.route.RequestContext;
 import java.time.Duration;
 import java.util.Optional;
 
+/**
+ * HTTP filter that provides idempotency for mutating requests.
+ *
+ * <p>IdempotencyFilter ensures that requests with the same Idempotency-Key
+ * header return the same response, preventing duplicate operations. It:
+ * <ul>
+ *   <li>Requires Idempotency-Key header for POST/PUT/DELETE/PATCH requests</li>
+ *   <li>Stores successful responses keyed by (path + idempotency key)</li>
+ *   <li>Returns cached response with Idempotent-Replayed header for replays</li>
+ *   <li>Automatically expires stored responses after TTL</li>
+ * </ul>
+ * </p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * MagnesiumApplication.builder()
+ *     .filter(new IdempotencyFilter(new InMemoryIdempotencyStore(), 24))
+ *     .build();
+ * }
+ *
+ * // Client sends:
+ * POST /payments
+ * Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+ *
+ * // Replay returns same response with header:
+ * Idempotent-Replayed: true
+ * </pre>
+ *
+ * @see IdempotencyStore
+ * @see InMemoryIdempotencyStore
+ * @see HttpFilter
+ */
 public final class IdempotencyFilter implements HttpFilter {
+    /** Header for the idempotency key. */
     private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
+
+    /** Header added to replayed responses. */
     private static final String REPLAYED_HEADER    = "Idempotent-Replayed";
 
     private final IdempotencyStore store;
     private final Duration ttlHours;
 
+    /**
+     * Creates a new idempotency filter.
+     *
+     * @param store   the store for caching responses
+     * @param ttlHours hours to retain stored responses
+     */
     public IdempotencyFilter(IdempotencyStore store, long ttlHours) {
         this.store    = store;
         this.ttlHours = Duration.ofHours(ttlHours);
@@ -31,7 +72,7 @@ public final class IdempotencyFilter implements HttpFilter {
             return chain.next(ctx);
         }
 
-        Slice key = ctx.header(IDEMPOTENCY_HEADER);
+        Slice key = ctx.headerRaw(IDEMPOTENCY_HEADER);
         if (key == null || key.isBlank()) {
             return ResponseEntity.of(400, new ErrorResponse(
                 "missing_idempotency_key",

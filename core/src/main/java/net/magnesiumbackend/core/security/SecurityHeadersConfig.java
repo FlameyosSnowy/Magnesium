@@ -1,5 +1,37 @@
 package net.magnesiumbackend.core.security;
 
+/**
+ * Configuration for security headers added to HTTP responses.
+ *
+ * <p>SecurityHeadersConfig defines which security headers should be added
+ * to outgoing HTTP responses. Use the builder or predefined presets to
+ * configure headers appropriate for your deployment.</p>
+ *
+ * <h3>Supported Headers</h3>
+ * <ul>
+ *   <li>{@code X-Content-Type-Options} - Prevents MIME type sniffing</li>
+ *   <li>{@code X-Frame-Options} - Clickjacking protection</li>
+ *   <li>{@code X-XSS-Protection} - Legacy XSS filter</li>
+ *   <li>{@code Strict-Transport-Security} - HTTPS enforcement (HSTS)</li>
+ *   <li>{@code Content-Security-Policy} - Resource loading policy</li>
+ *   <li>{@code Referrer-Policy} - Referrer information control</li>
+ *   <li>{@code Permissions-Policy} - Browser feature restrictions</li>
+ * </ul>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * // HTTPS deployment with strict headers
+ * SecurityHeadersConfig config = SecurityHeadersConfig.httpsDefaults();
+ *
+ * // Custom configuration
+ * SecurityHeadersConfig config = SecurityHeadersConfig.builder()
+ *     .frameOptions("SAMEORIGIN")
+ *     .contentSecurityPolicy("default-src 'self'; script-src 'self' 'unsafe-inline'")
+ *     .build();
+ * }</pre>
+ *
+ * @see SecurityHeadersFilter
+ */
 public final class SecurityHeadersConfig {
     private final boolean contentTypeOptions;
     private final boolean xssProtection;
@@ -19,6 +51,10 @@ public final class SecurityHeadersConfig {
         this.permissionsPolicy      = b.permissionsPolicy;
     }
 
+    /**
+     * Returns default configuration for HTTP deployments.
+     * Excludes HSTS and CSP (which require HTTPS consideration).
+     */
     public static SecurityHeadersConfig defaults() {
         return builder()
             .contentTypeOptions(true)
@@ -28,6 +64,10 @@ public final class SecurityHeadersConfig {
             .build();
     }
 
+    /**
+     * Returns default configuration for HTTPS deployments.
+     * Includes HSTS and CSP for maximum security.
+     */
     public static SecurityHeadersConfig httpsDefaults() {
         return builder()
             .contentTypeOptions(true)
@@ -39,6 +79,9 @@ public final class SecurityHeadersConfig {
             .build();
     }
 
+    /**
+     * Returns configuration with all headers disabled.
+     */
     public static SecurityHeadersConfig none() {
         return builder().build();
     }

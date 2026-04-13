@@ -16,7 +16,7 @@ public final class RateLimiterFilter implements HttpFilter {
 
         static KeyResolver byIp() {
             return ctx -> {
-                Slice xff = ctx.header("X-Forwarded-For");
+                Slice xff = ctx.headerRaw("X-Forwarded-For");
 
                 if (xff != null && xff.length() > 0) {
                     Slice first = firstToken(xff, ',');
@@ -24,7 +24,7 @@ public final class RateLimiterFilter implements HttpFilter {
                     return trimmed.materialize();
                 }
 
-                Slice realIp = ctx.header("X-Real-IP");
+                Slice realIp = ctx.headerRaw("X-Real-IP");
                 if (realIp != null && realIp.length() > 0) {
                     return trim(realIp).materialize();
                 }
@@ -44,7 +44,7 @@ public final class RateLimiterFilter implements HttpFilter {
 
         static KeyResolver byApiKey() {
             return ctx -> {
-                Slice key = ctx.header("X-Api-Key");
+                Slice key = ctx.headerRaw("X-Api-Key");
                 return (key != null && key.length() > 0)
                     ? key.materialize()
                     : byIp().resolve(ctx);
@@ -53,7 +53,7 @@ public final class RateLimiterFilter implements HttpFilter {
 
         static KeyResolver byHeader(String headerName) {
             return ctx -> {
-                Slice val = ctx.header(headerName);
+                Slice val = ctx.headerRaw(headerName);
                 return (val != null && val.length() > 0)
                     ? val.materialize()
                     : byIp().resolve(ctx);

@@ -11,6 +11,34 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+/**
+ * Configuration source backed by YAML files.
+ *
+ * <p>Reads configuration from YAML files using SnakeYAML engine. Supports
+ * nested objects and arrays via dot notation (e.g., {@code "server.port"}
+ * accesses {@code server: { port: 8080 }}).</p>
+ *
+ * <h3>Example YAML</h3>
+ * <pre>
+ * server:
+ *   port: 8080
+ *   host: localhost
+ * database:
+ *   url: jdbc:postgresql://localhost/mydb
+ * </pre>
+ *
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ * ConfigSource yaml = YamlConfigSource.fromPath(Path.of("config.yml"));
+ *
+ * int port = yaml.getInt("server.port");
+ * String host = yaml.getString("server.host");
+ * }</pre>
+ *
+ * @see ConfigSource
+ * @see MagnesiumConfigurationManager.Builder#yaml(Path)
+ * @see <a href="https://bitbucket.org/snakeyaml/snakeyaml-engine">SnakeYAML Engine</a>
+ */
 public final class YamlConfigSource implements ConfigSource {
 
     private final ConfigSource delegate;
@@ -19,6 +47,13 @@ public final class YamlConfigSource implements ConfigSource {
         this.delegate = delegate;
     }
 
+    /**
+     * Loads YAML configuration from a file path.
+     *
+     * @param path the path to the YAML file
+     * @return a new YamlConfigSource
+     * @throws IllegalStateException if the file cannot be read or parsed
+     */
     public static @NotNull YamlConfigSource fromPath(@NotNull Path path) {
         Object loaded;
         LoadSettings settings = LoadSettings.builder().build();

@@ -4,8 +4,27 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Simple cookie header parser that materializes values immediately.
+ *
+ * <p>Unlike {@link CookieIndex} which keeps values as slices, this parser
+ * converts all values to Strings immediately. Use this when you need all
+ * cookies as Strings and don't need the lazy evaluation benefits of Slice.</p>
+ *
+ * <h3>Format</h3>
+ * <pre>name1=value1; name2=value2; name3=value3</pre>
+ *
+ * @see CookieIndex
+ * @see Slice
+ */
 public final class CookieParser {
 
+    /**
+     * Parses a Cookie header value into a map of name to value.
+     *
+     * @param cookieHeader the Cookie header value (may be null or empty)
+     * @return an unmodifiable map of cookie names to values
+     */
     public static Map<String, String> parse(Slice cookieHeader) {
         if (cookieHeader == null || cookieHeader.length() == 0) {
             return Collections.emptyMap();

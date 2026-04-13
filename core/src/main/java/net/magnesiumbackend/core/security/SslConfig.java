@@ -21,6 +21,41 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 
+/**
+ * Configuration for SSL/TLS certificates and keys.
+ *
+ * <p>SslConfig provides a unified way to load SSL certificates from various sources:
+ * <ul>
+ *   <li>PEM files (certificate chain + private key)</li>
+ *   <li>Java KeyStore files (JKS or PKCS12)</li>
+ *   <li>Self-signed certificates (development only)</li>
+ * </ul>
+ * </p>
+ *
+ * <h3>Usage Examples</h3>
+ * <pre>{@code
+ * // From PEM files (production)
+ * SslConfig ssl = SslConfig.fromPem(
+ *     new File("/etc/ssl/cert.pem"),
+ *     new File("/etc/ssl/key.pem")
+ * );
+ *
+ * // From Java KeyStore
+ * SslConfig ssl = SslConfig.fromKeyStore(
+ *     new File("/etc/ssl/keystore.p12"),
+ *     "password".toCharArray()
+ * );
+ *
+ * // Self-signed (development only)
+ * SslConfig ssl = SslConfig.selfSigned();
+ *
+ * // Create SSLContext
+ * SSLContext ctx = ssl.sslContext();
+ * }</pre>
+ *
+ * @see SSLContext
+ * @see KeyManagerFactory
+ */
 public final class SslConfig {
 
     private final KeyStore keyStore;
@@ -33,10 +68,23 @@ public final class SslConfig {
         this.webSocketSecured = webSocketSecured;
     }
 
+    /** Returns the loaded KeyStore. */
     public KeyStore keyStore()          { return keyStore; }
+
+    /** Returns the KeyStore password. */
     public char[]   password()          { return password; }
+
+    /** Returns true if WebSocket should use wss://. */
     public boolean  isWebSocketSecured(){ return webSocketSecured; }
 
+    /**
+     * Loads SSL config from PEM files with WebSocket secured.
+     *
+     * @param certChainFile the certificate chain PEM file
+     * @param privateKeyFile the private key PEM file
+     * @return the SSL configuration
+     * @throws Exception if loading fails
+     */
     public static SslConfig fromPem(File certChainFile, File privateKeyFile) throws Exception {
         return fromPem(certChainFile, privateKeyFile, true);
     }

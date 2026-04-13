@@ -1,7 +1,25 @@
 package net.magnesiumbackend.core.headers;
 
+/**
+ * Resolves HTTP header names to their {@link HeaderRegistry} IDs.
+ *
+ * <p>Provides fast, allocation-free resolution of header names to integer IDs
+ * using length-based dispatch and case-insensitive comparison. This allows
+ * O(1) array-based lookups in {@link HttpHeaderIndex}.</p>
+ *
+ * <p>Supports both Slice (zero-copy) and String-based resolution.</p>
+ *
+ * @see HeaderRegistry
+ * @see HttpHeaderIndex
+ */
 public final class HeaderResolver {
 
+    /**
+     * Resolves a header name Slice to its HeaderRegistry ID.
+     *
+     * @param name the header name as a Slice
+     * @return the header ID, or -1 if not a known header
+     */
     public static int resolve(Slice name) {
         int len = name.length();
 

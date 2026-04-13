@@ -8,10 +8,60 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
+/**
+ * Abstraction for reading configuration values from various sources.
+ *
+ * <p>ConfigSource implementations provide a unified interface for accessing
+ * configuration from properties files, YAML, JSON, environment variables,
+ * and other sources. Sources support nested keys using dot notation (e.g.,
+ * {@code "server.port"}).</p>
+ *
+ * <h3>Supported Value Types</h3>
+ * <ul>
+ *   <li>String - Raw configuration values</li>
+ *   <li>Integer - Whole numbers</li>
+ *   <li>Long - Large whole numbers</li>
+ *   <li>Boolean - true/false values</li>
+ *   <li>Double - Decimal numbers</li>
+ *   <li>Float - Single-precision decimals</li>
+ *   <li>Enum - Enumerated types</li>
+ * </ul>
+ *
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ * ConfigSource source = YamlConfigSource.fromPath(Path.of("config.yml"));
+ *
+ * // Safe access with defaults
+ * int port = source.getInt("server.port");
+ * String host = source.getString("server.host");
+ *
+ * // Require presence (throws if missing)
+ * String dbUrl = source.requireString("database.url");
+ *
+ * // Optional values
+ * Optional<String> optional = source.getOptionalString("feature.flag");
+ * }</pre>
+ *
+ * @see MagnesiumConfigurationManager
+ * @see ConfigSourceChain
+ * @see YamlConfigSource
+ * @see PropertiesConfigSource
+ */
 public interface ConfigSource {
 
+    /**
+     * Returns the name of this configuration source.
+     *
+     * @return a descriptive name (e.g., "yaml:config.yml", "env")
+     */
     @NotNull String name();
 
+    /**
+     * Checks if the specified key exists in this source.
+     *
+     * @param key the configuration key (supports dot notation)
+     * @return true if the key exists
+     */
     boolean has(@NotNull String key);
 
     @Nullable String getString(@NotNull String key);

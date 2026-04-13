@@ -5,11 +5,40 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
+/**
+ * Composite configuration source that chains multiple sources together.
+ *
+ * <p>The chain queries sources in order, returning the first value found.
+ * This enables configuration layering where later sources override earlier ones.
+ * Common ordering: defaults → file → environment variables.</p>
+ *
+ * <h3>Precedence Example</h3>
+ * <pre>{@code
+ * // Create chain: env vars override YAML, which overrides defaults
+ * ConfigSource chain = new ConfigSourceChain("app", List.of(
+ *     new MapConfigSource("defaults", defaultValues),
+ *     YamlConfigSource.fromPath(Path.of("config.yml")),
+ *     new EnvConfigSource()
+ * ));
+ *
+ * // Environment variable takes precedence if set
+ * String value = chain.getString("server.port");
+ * }</pre>
+ *
+ * @see ConfigSource
+ * @see MagnesiumConfigurationManager
+ */
 public final class ConfigSourceChain implements ConfigSource {
 
     private final String name;
     private final List<ConfigSource> sources;
 
+    /**
+     * Creates a new configuration source chain.
+     *
+     * @param name    the name for this chain
+     * @param sources the ordered list of sources to query
+     */
     public ConfigSourceChain(@NotNull String name, @NotNull List<ConfigSource> sources) {
         this.name = name;
         this.sources = sources;

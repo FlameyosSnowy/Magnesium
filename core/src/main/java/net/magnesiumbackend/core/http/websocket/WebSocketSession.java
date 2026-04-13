@@ -6,16 +6,74 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+/**
+ * Represents a WebSocket connection session.
+ *
+ * <p>WebSocketSession provides methods for interacting with a WebSocket
+ * connection including sending messages (text or binary), closing the
+ * connection, and accessing request metadata like path variables and headers.
+ * </p>
+ *
+ * <h3>Send Methods</h3>
+ * <ul>
+ *   <li>{@link #sendText(String)} - Synchronous text send</li>
+ *   <li>{@link #sendBinary(byte[])} - Synchronous binary send</li>
+ *   <li>{@link #sendTextAsync(Supplier)} - Asynchronous text send</li>
+ *   <li>{@link #sendBinaryAsync(Supplier)} - Asynchronous binary send</li>
+ *   <li>{@link #sendTextInIoThread(String)} - Non-blocking for reactive transports</li>
+ * </ul>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * @Override
+ * public void onMessage(WebSocketSession session, WebSocketMessage message) {
+ *     String reply = process(message.asText());
+ *     session.sendText(reply);
+ *
+ *     // Or async for long operations
+ *     session.sendTextAsync(() -> expensiveOperation());
+ * }
+ * }</pre>
+ *
+ * @see WebSocketHandler
+ * @see WebSocketSessionManager
+ */
 public interface WebSocketSession {
 
+    /**
+     * Returns the unique session ID.
+     *
+     * @return the session identifier
+     */
     String id();
 
+    /**
+     * Closes the session with specific code and reason.
+     *
+     * @param code   the close status code
+     * @param reason the close reason
+     */
     void close(int code, @NotNull String reason);
 
+    /**
+     * Returns true if the session is still open.
+     *
+     * @return true if connected
+     */
     boolean isOpen();
 
+    /**
+     * Returns path variables from the WebSocket path.
+     *
+     * @return map of variable name to value
+     */
     Map<String, String> pathVariables();
 
+    /**
+     * Returns request headers from the WebSocket handshake.
+     *
+     * @return map of header name to value
+     */
     Map<String, String> headers();
 
     /** Sends text synchronously. */

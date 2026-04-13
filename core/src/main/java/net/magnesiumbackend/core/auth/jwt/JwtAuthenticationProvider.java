@@ -7,18 +7,50 @@ import net.magnesiumbackend.core.headers.Slice;
 
 import java.util.Optional;
 
+/**
+ * JWT Bearer token authentication provider.
+ *
+ * <p>Extracts and validates JWT tokens from the {@code Authorization} header
+ * using the Bearer scheme. The token is verified using the configured
+ * {@link NimbusJwtVerifier}.</p>
+ *
+ * <h3>Expected Header Format</h3>
+ * <pre>Authorization: Bearer &lt;jwt-token&gt;</pre>
+ *
+ * <h3>Principal Mapping</h3>
+ * <ul>
+ *   <li>userId: {@code sub} claim from JWT</li>
+ *   <li>username: {@code username} claim, or {@code sub} if username not present</li>
+ *   <li>permissions: {@code permissions} claim (string array)</li>
+ * </ul>
+ *
+ * <p>Example usage:</p>
+ * <pre>{@code
+ * // HMAC-SHA256 with shared secret
+ * byte[] secret = loadSecretFromEnv();
+ * NimbusJwtVerifier verifier = new NimbusJwtVerifier(secret);
+ * JwtAuthenticationProvider provider = new JwtAuthenticationProvider(verifier);
+ * }</pre>
+ *
+ * @see NimbusJwtVerifier
+ * @see AuthenticationProvider
+ */
 public final class JwtAuthenticationProvider implements AuthenticationProvider {
 
     private final NimbusJwtVerifier verifier;
 
+    /**
+     * Creates a new JWT authentication provider.
+     *
+     * @param verifier the JWT verifier for token validation
+     */
     public JwtAuthenticationProvider(NimbusJwtVerifier verifier) {
         this.verifier = verifier;
     }
 
     @Override
     public Optional<Principal> authenticate(RequestContext ctx) throws AuthenticationException {
-
-        Slice header = ctx.header("Authorization");
+        Slice header = ctx.headerRaw("Authorization");
 
         if (header == null || header.length() < 8) {
             return Optional.empty();

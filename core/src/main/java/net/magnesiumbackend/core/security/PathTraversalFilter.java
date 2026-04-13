@@ -9,8 +9,34 @@ import net.magnesiumbackend.core.route.RequestContext;
 import java.text.Normalizer;
 import java.util.Map;
 
+/**
+ * Security filter that detects and blocks path traversal attacks.
+ *
+ * <p>PathTraversalFilter inspects path variables and query parameters for
+ * malicious sequences that could escape the intended directory:
+ * <ul>
+ *   <li>{@code ..} - Parent directory references</li>
+ *   <li>{@code ../} - Path separators</li>
+ *   <li>Null bytes ({@code \0}) - String termination attacks</li>
+ *   <li>Control characters</li>
+ *   <li>Unicode homoglyphs via NFKC normalization</li>
+ * </ul>
+ * </p>
+ *
+ * <p>The filter performs multi-pass URL decoding to catch encoded attacks.</p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * MagnesiumApplication.builder()
+ *     .filter(new PathTraversalFilter())
+ *     .build();
+ * }</pre>
+ *
+ * @see HttpFilter
+ */
 public final class PathTraversalFilter implements HttpFilter {
 
+    /** Maximum number of URL decode passes to prevent abuse. */
     private static final int MAX_DECODE_PASSES = 3;
 
     @Override

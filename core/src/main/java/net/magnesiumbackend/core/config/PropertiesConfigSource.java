@@ -9,16 +9,59 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
+/**
+ * Configuration source backed by Java Properties files.
+ *
+ * <p>Reads configuration from standard {@code .properties} files with
+ * the familiar {@code key=value} format. Supports flat keys only;
+ * for nested structures consider YAML or JSON.</p>
+ *
+ * <h3>Example Properties File</h3>
+ * <pre>
+ * server.port=8080
+ * server.host=localhost
+ * database.url=jdbc:postgresql://localhost/mydb
+ * </pre>
+ *
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ * // Load from file
+ * ConfigSource props = PropertiesConfigSource.fromPath(Path.of("application.properties"));
+ *
+ * // Or from existing Properties object
+ * Properties p = new Properties();
+ * p.load(inputStream);
+ * ConfigSource source = new PropertiesConfigSource("custom", p);
+ *
+ * int port = props.getInt("server.port");
+ * }</pre>
+ *
+ * @see ConfigSource
+ * @see MagnesiumConfigurationManager.Builder#properties(Path)
+ */
 public final class PropertiesConfigSource implements ConfigSource {
 
     private final String name;
     private final Properties properties;
 
+    /**
+     * Creates a source from an existing Properties object.
+     *
+     * @param name       the source name
+     * @param properties the properties to use
+     */
     public PropertiesConfigSource(@NotNull String name, @NotNull Properties properties) {
         this.name = name;
         this.properties = properties;
     }
 
+    /**
+     * Loads properties from a file path.
+     *
+     * @param path the path to the properties file
+     * @return a new PropertiesConfigSource
+     * @throws IllegalStateException if the file cannot be read
+     */
     public static @NotNull PropertiesConfigSource fromPath(@NotNull Path path) {
         Properties props = new Properties();
         try (InputStream in = Files.newInputStream(path)) {

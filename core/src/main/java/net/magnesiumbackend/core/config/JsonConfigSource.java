@@ -11,6 +11,38 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+/**
+ * Configuration source backed by JSON files.
+ *
+ * <p>Reads configuration from JSON files using DSL-JSON parser. Supports
+ * nested objects via dot notation (e.g., {@code "server.port"} accesses
+ * {@code {"server": {"port": 8080}}}).</p>
+ *
+ * <h3>Example JSON</h3>
+ * <pre>
+ * {
+ *   "server": {
+ *     "port": 8080,
+ *     "host": "localhost"
+ *   },
+ *   "database": {
+ *     "url": "jdbc:postgresql://localhost/mydb"
+ *   }
+ * }
+ * </pre>
+ *
+ * <h3>Usage Example</h3>
+ * <pre>{@code
+ * ConfigSource json = JsonConfigSource.fromPath(Path.of("config.json"));
+ *
+ * int port = json.getInt("server.port");
+ * String host = json.getString("server.host");
+ * }</pre>
+ *
+ * @see ConfigSource
+ * @see MagnesiumConfigurationManager.Builder#json(Path)
+ * @see <a href="https://github.com/ngs-doo/dsl-json">DSL-JSON</a>
+ */
 public final class JsonConfigSource implements ConfigSource {
 
     private static final DslJson<Object> DSL_JSON = new DslJson<>(Settings.withRuntime().includeServiceLoader());
@@ -21,6 +53,13 @@ public final class JsonConfigSource implements ConfigSource {
         this.delegate = delegate;
     }
 
+    /**
+     * Loads JSON configuration from a file path.
+     *
+     * @param path the path to the JSON file
+     * @return a new JsonConfigSource
+     * @throws IllegalStateException if the file cannot be read or parsed
+     */
     public static @NotNull JsonConfigSource fromPath(@NotNull Path path) {
         Object loaded;
         try (InputStream in = Files.newInputStream(path)) {

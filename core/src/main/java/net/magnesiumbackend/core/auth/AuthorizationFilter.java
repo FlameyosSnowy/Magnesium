@@ -6,12 +6,55 @@ import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
 
+/**
+ * HTTP filter that enforces authorization rules on incoming requests.
+ *
+ * <p>The authorization filter runs after authentication and verifies that the
+ * authenticated principal has the required permissions to access the resource.
+ * It can require authentication and/or specific permissions.</p>
+ *
+ * <h3>Authorization Modes</h3>
+ * <ul>
+ *   <li>{@link RequiresMode#ALL} - Principal must have ALL listed permissions</li>
+ *   <li>{@link RequiresMode#ANY} - Principal must have ANY ONE of the listed permissions</li>
+ * </ul>
+ *
+ * <p>Example usage:</p>
+ * <pre>{@code
+ * // Require authentication only
+ * new AuthorizationFilter(true, new String[0], RequiresMode.ALL)
+ *
+ * // Require specific permission
+ * new AuthorizationFilter(true, new String[]{"orders:read"}, RequiresMode.ALL)
+ *
+ * // Require any of multiple permissions
+ * new AuthorizationFilter(true,
+ *     new String[]{"admin", "moderator"},
+ *     RequiresMode.ANY)
+ * }</pre>
+ *
+ * <p>Usually applied via annotations ({@code @Authenticated}, {@code @Requires}, {@code @Secured})
+ * rather than direct filter construction.</p>
+ *
+ * @see AuthenticationFilter
+ * @see RequiresMode
+ * @see HttpFilter
+ * @see net.magnesiumbackend.core.annotations.Authenticated
+ * @see net.magnesiumbackend.core.annotations.Requires
+ */
 public final class AuthorizationFilter implements HttpFilter {
 
     private final boolean      requiresAuthentication;
     private final String[]      permissions;
     private final RequiresMode  mode;
 
+    /**
+     * Creates a new authorization filter.
+     *
+     * @param requiresAuthentication if true, anonymous principals are rejected with 401
+     * @param permissions          the required permissions (may be empty for auth-only)
+     * @param mode                 how to evaluate multiple permissions (ALL or ANY)
+     */
     public AuthorizationFilter(
         boolean requiresAuthentication,
         String[] permissions,

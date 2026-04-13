@@ -2,6 +2,27 @@ package net.magnesiumbackend.core.headers;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Zero-copy byte slice for efficient header and cookie parsing.
+ *
+ * <p>Slice provides a lightweight view into an underlying byte array without
+ * copying data. This is critical for high-performance HTTP parsing where
+ * headers and cookies are processed without allocating intermediate strings.</p>
+ *
+ * <h3>Operations</h3>
+ * <ul>
+ *   <li>{@link #byteAt(int)} - Access individual bytes</li>
+ *   <li>{@link #charAt(int)} - Access as char (for ASCII parsing)</li>
+ *   <li>{@link #materialize()} - Convert to String (costly, defer if possible)</li>
+ *   <li>{@link #materializeLowercase()} - Convert to lowercase String</li>
+ *   <li>{@link #equalsIgnoreCase(String)} - Case-insensitive comparison without allocation</li>
+ *   <li>{@link #slice(int, int)} - Create sub-slice without copying</li>
+ * </ul>
+ *
+ * @param src   the underlying byte array
+ * @param start the starting offset into the array
+ * @param len   the length of this slice
+ */
 public record Slice(byte[] src, int start, int len) {
     public int length() {
         return len;

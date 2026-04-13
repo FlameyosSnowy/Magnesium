@@ -5,11 +5,39 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Fast index for HTTP headers with O(1) lookup for known headers.
+ *
+ * <p>Parses the raw HTTP header block into an index that supports both fast
+ * array-based lookups for known headers ({@link HeaderRegistry}) and HashMap
+ * fallback for custom headers. The parsing is done once during construction.</p>
+ *
+ * <h3>Usage</h3>
+ * <pre>{@code
+ * byte[] headerBlock = ...; // Raw HTTP headers
+ * HttpHeaderIndex headers = new HttpHeaderIndex(headerBlock);
+ *
+ * // Fast lookup for known headers
+ * Slice contentType = headers.get(HeaderRegistry.CONTENT_TYPE);
+ *
+ * // Generic lookup by name
+ * Slice auth = headers.get("Authorization");
+ * }</pre>
+ *
+ * @see HeaderRegistry
+ * @see HeaderResolver
+ * @see CookieRequest
+ */
 public final class HttpHeaderIndex {
 
     private final Slice[] headersById;
     private final Map<String, Slice> fallback;
 
+    /**
+     * Creates a new header index from the raw header block.
+     *
+     * @param raw the raw HTTP header bytes
+     */
     public HttpHeaderIndex(byte[] raw) {
         this.headersById = new Slice[HeaderRegistry.COUNT];
         this.fallback = new HashMap<>(8);
