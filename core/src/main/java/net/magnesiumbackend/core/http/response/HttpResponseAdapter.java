@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http.response;
 
+import net.magnesiumbackend.core.headers.Slice;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -64,4 +66,6 @@ public interface HttpResponseAdapter {
     default void writeChunk(byte[] chunk, boolean last) throws IOException {
         write(chunk);
     }
+
+    void setHeader(Slice key, Slice value);
 }

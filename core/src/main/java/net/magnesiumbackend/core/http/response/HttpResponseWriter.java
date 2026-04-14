@@ -49,6 +49,9 @@ public final class HttpResponseWriter {
         this.converterRegistry = converterRegistry;
     }
 
+    private static final Slice CONTENT_TYPE_NAME  = Slice.of("Content-Type");
+    private static final Slice CONTENT_TYPE_VALUE = Slice.of("application/json");
+
     /**
      * Writes a ResponseEntity to the adapter.
      *
@@ -58,20 +61,21 @@ public final class HttpResponseWriter {
      */
     public void write(ResponseEntity<?> response, HttpResponseAdapter adapter) throws IOException {
         Object body = response.body();
-        Slice contentType = resolveContentType(response.headers());
+        HttpHeaderIndex headers = response.headers();
+        Slice contentType = resolveContentType(headers);
 
         adapter.setStatus(response.statusCode());
 
-        HttpHeaderIndex headers = response.headers();
         if (!headers.isEmpty()) {
             HttpHeaderIndex.Iterator iterator = headers.iterator();
             while (iterator.next()) {
-                adapter.setHeader(iterator.nameSlice().materialize(), iterator.valueSlice().materialize());
+                adapter.setHeader(iterator.nameSlice(), iterator.valueSlice());
             }
         }
 
-        if (response.headers().get("Content-Type") != null) {
-            adapter.setHeader("Content-Type", contentType.materialize());
+        // Always ensure Content-Type is present
+        if (headers.get("Content-Type") == null) {
+            adapter.setHeader(CONTENT_TYPE_NAME, CONTENT_TYPE_VALUE);
         }
 
         switch (body) {

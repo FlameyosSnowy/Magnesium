@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpExchange;
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import java.io.IOException;
@@ -35,5 +36,13 @@ public class JdkHttpResponseAdapter implements HttpResponseAdapter {
     @Override
     public void setHeader(String name, String value) {
         exchange.getResponseHeaders().set(name, value);
+    }
+
+    @Override
+    public void setHeader(Slice name, Slice value) {
+        exchange.getResponseHeaders().set(
+            name.materialize(),
+            value.materialize()
+        );
     }
 }

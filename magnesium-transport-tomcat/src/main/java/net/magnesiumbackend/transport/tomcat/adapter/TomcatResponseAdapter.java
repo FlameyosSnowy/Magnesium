@@ -1,5 +1,6 @@
 package net.magnesiumbackend.transport.tomcat.adapter;
 
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,5 +34,10 @@ public class TomcatResponseAdapter implements HttpResponseAdapter {
     public void write(byte[] body, int offset, int length) throws IOException {
         response.setContentLength(length);
         response.getOutputStream().write(body, offset, length);
+    }
+
+    @Override
+    public void setHeader(Slice name, Slice value) {
+        response.setHeader(name.materialize(), value.materialize());
     }
 }
