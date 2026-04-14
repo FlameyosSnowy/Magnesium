@@ -5,6 +5,8 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import net.magnesiumbackend.core.http.response.HttpResponseAdapter;
 
+import java.nio.ByteBuffer;
+
 public class NettyResponseAdapter implements HttpResponseAdapter {
 
     private final FullHttpResponse response;
@@ -27,6 +29,12 @@ public class NettyResponseAdapter implements HttpResponseAdapter {
     public void write(byte[] body) {
         response.content().clear().writeBytes(body);
         response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, body.length);
+    }
+
+    @Override
+    public void write(ByteBuffer buffer) {
+        response.content().clear().writeBytes(buffer);
+        response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, buffer.remaining());
     }
 
     @Override

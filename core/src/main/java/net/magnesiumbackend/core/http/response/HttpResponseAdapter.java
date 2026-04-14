@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.http.response;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * Abstraction for writing HTTP responses to the underlying transport.
@@ -49,4 +50,18 @@ public interface HttpResponseAdapter {
      * @throws IOException if writing fails
      */
     void write(byte[] bytes, int offset, int length) throws IOException;
+
+    /**
+     * Zero-copy capable write
+     */
+    default void write(ByteBuffer buffer) throws IOException {
+        write(buffer.array()); // fallback
+    }
+
+    /**
+     * Optional: streaming support (future-proof)
+     */
+    default void writeChunk(byte[] chunk, boolean last) throws IOException {
+        write(chunk);
+    }
 }
