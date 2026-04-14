@@ -149,7 +149,7 @@ public final class LifecycleGraph {
         // Check for remaining nodes (cycle or unresolved deps)
         if (result.size() != nodes.size()) {
             Set<Class<?>> remaining = new HashSet<>(nodes.keySet());
-            remaining.removeAll(result);
+            result.forEach(remaining::remove);
 
             // Try to detect specific cycle
             for (Class<?> component : remaining) {
