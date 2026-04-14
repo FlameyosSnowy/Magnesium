@@ -6,18 +6,16 @@ import io.netty.handler.codec.http.*;
 import net.magnesiumbackend.core.backpressure.QueueRejectedError;
 import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.DefaultRequest;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.response.*;
 import net.magnesiumbackend.core.http.response.HttpMethod;
-import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
-import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.route.*;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
 import net.magnesiumbackend.core.security.SslConfig;
-import net.magnesiumbackend.core.headers.HttpHeaderIndex;
-import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.transport.netty.adapter.NettyHeaderAdapter;
 import net.magnesiumbackend.transport.netty.adapter.NettyResponseAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -35,22 +33,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumMethod;
-import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.asMagnesiumVersion;
+import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.*;
 
 public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NettyHttpServerHandler.class);
-
     private static final byte[] NOT_FOUND = "Not Found".getBytes(StandardCharsets.UTF_8);
 
     private final HttpRouteRegistry httpRouteRegistry;
     private final List<HttpFilter> globalFilters;
     private final ExceptionHandlerRegistry exceptionHandlerRegistry;
     private final MessageConverterRegistry messageConverterRegistry;
-    private final WebSocketRouteRegistry webSocketRouteRegistry;
-    private final WebSocketSessionManager sessionManager;
-    @Nullable private final SslConfig sslConfig;
     private final SecurityHeadersFilter securityHeadersFilter;
     @Nullable private final Executor requestExecutor;
     private final Duration timeout;
@@ -60,10 +53,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         List<HttpFilter> globalFilters,
         ExceptionHandlerRegistry exceptionHandlerRegistry,
         MessageConverterRegistry messageConverterRegistry,
-        WebSocketRouteRegistry webSocketRouteRegistry,
-        WebSocketSessionManager sessionManager,
-        @Nullable SslConfig sslConfig,
-        SecurityHeadersFilter securityHeadersFilter,
+        @Nullable SecurityHeadersFilter securityHeadersFilter,
         @Nullable Executor requestExecutor,
         Duration timeout
     ) {
@@ -71,9 +61,6 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         this.globalFilters = globalFilters;
         this.exceptionHandlerRegistry = exceptionHandlerRegistry;
         this.messageConverterRegistry = messageConverterRegistry;
-        this.webSocketRouteRegistry = webSocketRouteRegistry;
-        this.sessionManager = sessionManager;
-        this.sslConfig = sslConfig;
         this.securityHeadersFilter = securityHeadersFilter;
         this.requestExecutor = requestExecutor;
         this.timeout = timeout;
@@ -97,7 +84,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
             return;
         }
 
-        RouteDefinition def = match.get().handler();
+        var matched = match.get();
+        RouteDefinition def = matched.handler();
 
         String body = req.content().toString(StandardCharsets.UTF_8);
         Map<String, String> queryParams = HttpUtils.parseQueryString(query);
@@ -110,7 +98,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
             asMagnesiumVersion(req.protocolVersion()),
             method,
             queryParams,
-            match.get().pathVariables(),
+            matched.pathVariables(),
             def,
             headers
         );
@@ -126,11 +114,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         RequestContext context,
         RouteDefinition def
     ) {
-
         SimpleCancellationToken token = new SimpleCancellationToken();
-
         ctx.channel().closeFuture().addListener(f -> token.cancel());
-
         context.setCancellationToken(token);
 
         CompletableFuture<ResponseEntity<?>> future;
@@ -139,7 +124,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
             future = def.executeAsync(context, globalFilters, exceptionHandlerRegistry, requestExecutor)
                 .orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (QueueRejectedError rejected) {
-            writeRejected(ctx, req, rejected);
+            writeRejected(ctx, req);
             return;
         }
 
@@ -149,9 +134,9 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
             if (err != null) {
                 if (err instanceof java.util.concurrent.TimeoutException) {
                     writeTimeout(ctx, req);
-                    return;
+                } else {
+                    writeError(ctx, req, err);
                 }
-                writeError(ctx, req, err);
                 return;
             }
 
@@ -170,8 +155,6 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
                 securityHeadersFilter.applyTo(entity);
             }
 
-            HttpResponseWriter writer = new HttpResponseWriter(messageConverterRegistry);
-
             DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
                 req.protocolVersion(),
                 HttpResponseStatus.valueOf(entity.statusCode())
@@ -182,6 +165,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
                 resp.headers().set("X-Correlation-Id", correlation.materialize());
             }
 
+            HttpResponseWriter writer = new HttpResponseWriter(messageConverterRegistry);
             writer.write(entity, new NettyResponseAdapter(resp));
 
             write(ctx, req, resp);
@@ -213,7 +197,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         write(ctx, req, resp);
     }
 
-    private void writeRejected(ChannelHandlerContext ctx, FullHttpRequest req, QueueRejectedError err) {
+    private void writeRejected(ChannelHandlerContext ctx, FullHttpRequest req) {
         FullHttpResponse resp = new DefaultFullHttpResponse(
             req.protocolVersion(),
             HttpResponseStatus.SERVICE_UNAVAILABLE,
@@ -226,13 +210,19 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
     private void write(ChannelHandlerContext ctx, FullHttpRequest req, FullHttpResponse resp) {
         resp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, resp.content().readableBytes());
 
-        ctx.executor().execute(() -> {
-            if (HttpUtil.isKeepAlive(req)) {
-                ctx.writeAndFlush(resp);
-            } else {
-                ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
-            }
-        });
+        if (ctx.executor().inEventLoop()) {
+            writeDirect(ctx, req, resp);
+        } else {
+            ctx.executor().execute(() -> writeDirect(ctx, req, resp));
+        }
+    }
+
+    private void writeDirect(ChannelHandlerContext ctx, FullHttpRequest req, FullHttpResponse resp) {
+        if (HttpUtil.isKeepAlive(req)) {
+            ctx.writeAndFlush(resp);
+        } else {
+            ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
+        }
     }
 
     private void writeNotFound(ChannelHandlerContext ctx, FullHttpRequest req) {
@@ -243,7 +233,6 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         );
 
         resp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, NOT_FOUND.length);
-
         write(ctx, req, resp);
     }
 
