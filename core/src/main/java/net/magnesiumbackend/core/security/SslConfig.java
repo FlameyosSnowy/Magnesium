@@ -17,9 +17,11 @@ import java.security.cert.Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Configuration for SSL/TLS certificates and keys.
@@ -178,14 +180,17 @@ public final class SslConfig {
         try (certStream) {
             certs = cf.generateCertificates(certStream);
         }
-        X509Certificate[] chain = certs.stream()
-            .map(X509Certificate.class::cast)
-            .toArray(X509Certificate[]::new);
+        List<X509Certificate> list = new ArrayList<>(certs.size());
+        for (Certificate cert : certs) {
+            X509Certificate x509Certificate = (X509Certificate) cert;
+            list.add(x509Certificate);
+        }
+        X509Certificate[] chain = list.toArray(new X509Certificate[0]);
 
         PrivateKey privateKey;
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(keyStream, StandardCharsets.UTF_8))) {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(32);
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.startsWith("-----")) sb.append(line.strip());

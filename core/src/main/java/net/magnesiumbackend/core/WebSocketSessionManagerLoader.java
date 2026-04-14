@@ -2,6 +2,7 @@ package net.magnesiumbackend.core;
 
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -44,15 +45,19 @@ public final class WebSocketSessionManagerLoader {
                 .toList();
 
         if (providers.size() > 1) {
+            List<String> list = new ArrayList<>(providers.size());
+            for (ServiceLoader.Provider<WebSocketSessionManager> p : providers) {
+                String name = p.type().getName();
+                list.add(name);
+            }
             throw new IllegalStateException(
                 "More than one WebSocketSessionManager found on classpath. " +
                     "Add only one transport dependency. " +
-                    "Found: " + providers.stream().map(p -> p.type().getName()).toList()
+                    "Found: " + list
             );
         }
 
-        Optional<WebSocketSessionManager> webSocketSessionManager = providers.stream().findFirst().map(ServiceLoader.Provider::get);
-        System.out.println("Loaded WebSocketSessionManager: " + webSocketSessionManager);
-        return webSocketSessionManager;
+        ServiceLoader.Provider<WebSocketSessionManager> first = providers.getFirst();
+        return first != null ? Optional.ofNullable(first.get()) : Optional.empty();
     }
 }

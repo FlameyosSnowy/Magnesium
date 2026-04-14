@@ -1,7 +1,9 @@
 package net.magnesiumbackend.core;
 
 import net.magnesiumbackend.core.http.MagnesiumTransport;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -47,13 +49,19 @@ public final class TransportLoader {
                 .toList();
 
         if (providers.size() > 1) {
+            List<String> list = new ArrayList<>(providers.size());
+            for (ServiceLoader.Provider<MagnesiumTransport> p : providers) {
+                String name = p.type().getName();
+                list.add(name);
+            }
             throw new IllegalStateException(
                 "More than one TransportProvider found on classpath. " +
                     "Add only one dependency such as magnesium-transport-netty. " +
-                    "Found: " + providers.stream().map(p -> p.type().getName()).toList()
+                    "Found: " + list
             );
         }
 
-        return providers.stream().findFirst().map(ServiceLoader.Provider::get);
+        ServiceLoader.Provider<MagnesiumTransport> first = providers.getFirst();
+        return first != null ? Optional.ofNullable(first.get()) : Optional.empty();
     }
 }
