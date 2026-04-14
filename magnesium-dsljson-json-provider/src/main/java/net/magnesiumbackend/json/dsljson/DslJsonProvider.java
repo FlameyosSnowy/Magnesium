@@ -4,11 +4,11 @@ import com.dslplatform.json.DslJson;
 import com.dslplatform.json.JsonWriter;
 import com.dslplatform.json.runtime.Settings;
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -67,7 +67,7 @@ public final class DslJsonProvider implements JsonProvider {
 
     @Override
     public <T> T fromRequest(Request request, Class<T> type) {
-        return fromJson(request.body(), type);
+        return fromJson(request.bodyAsBytes(), type);
     }
 
     public <T> T fromJson(ByteArrayInputStream stream, Class<T> type) {
@@ -76,6 +76,21 @@ public final class DslJsonProvider implements JsonProvider {
 
         } catch (IOException e) {
             throw new RuntimeException("DSL-JSON stream deserialization failed", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> deserializeToMap(InputStream in) {
+        try {
+            Object result = dslJson.deserialize(Object.class, in);
+            if (result instanceof Map<?, ?> map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> typedMap = (Map<String, Object>) map;
+                return typedMap;
+            }
+            throw new JsonException("JSON root must be an object", null);
+        } catch (IOException e) {
+            throw new JsonException("DSL-JSON deserialization failed", e);
         }
     }
 }

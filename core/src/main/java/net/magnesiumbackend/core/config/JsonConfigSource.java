@@ -1,7 +1,6 @@
 package net.magnesiumbackend.core.config;
 
-import com.dslplatform.json.DslJson;
-import com.dslplatform.json.runtime.Settings;
+import net.magnesiumbackend.core.json.JsonProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -14,8 +13,8 @@ import java.util.Map;
 /**
  * Configuration source backed by JSON files.
  *
- * <p>Reads configuration from JSON files using DSL-JSON parser. Supports
- * nested objects via dot notation (e.g., {@code "server.port"} accesses
+ * <p>Reads configuration from JSON files using the configured {@link JsonProvider}.
+ * Supports nested objects via dot notation (e.g., {@code "server.port"} accesses
  * {@code {"server": {"port": 8080}}}).</p>
  *
  * <h3>Example JSON</h3>
@@ -41,13 +40,16 @@ import java.util.Map;
  *
  * @see ConfigSource
  * @see MagnesiumConfigurationManager.Builder#json(Path)
- * @see <a href="https://github.com/ngs-doo/dsl-json">DSL-JSON</a>
  */
 public final class JsonConfigSource implements ConfigSource {
 
-    private static final DslJson<Object> DSL_JSON = new DslJson<>(Settings.withRuntime().includeServiceLoader());
+    private static JsonProvider jsonProvider;
 
     private final ConfigSource delegate;
+
+    public static void init(JsonProvider provider) {
+        jsonProvider = provider;
+    }
 
     private JsonConfigSource(@NotNull ConfigSource delegate) {
         this.delegate = delegate;
@@ -61,19 +63,12 @@ public final class JsonConfigSource implements ConfigSource {
      * @throws IllegalStateException if the file cannot be read or parsed
      */
     public static @NotNull JsonConfigSource fromPath(@NotNull Path path) {
-        Object loaded;
+        Map<String, Object> root;
         try (InputStream in = Files.newInputStream(path)) {
-            loaded = DSL_JSON.deserialize(Object.class, in);
+            root = jsonProvider.deserializeToMap(in);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to load json from: " + path, e);
         }
-
-        if (!(loaded instanceof Map<?, ?> map)) {
-            throw new IllegalStateException("JSON root must be an object: " + path);
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> root = (Map<String, Object>) map;
         return new JsonConfigSource(new MapConfigSource("json:" + path, root));
     }
 

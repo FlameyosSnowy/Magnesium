@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
@@ -17,6 +18,7 @@ import com.sun.net.httpserver.HttpsParameters;
 import net.magnesiumbackend.core.security.SslConfig;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -72,15 +74,29 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
         WebSocketSessionManager sessionManager = application.httpServer().webSocketSessionManager();
 
         for (RouteTree.RouteEntry<WebSocketHandlerWrapper> entry : wsRegistry.entries()) {
-            String path        = entry.path();
+
+            String path = entry.path();
             String contextPath = toContextPath(path);
 
             server.createContext(contextPath, exchange -> {
-                String requestPath = exchange.getRequestURI().getPath();
-                RoutePathTemplate template = RoutePathTemplate.compile(path);
-                Map<String, String> pathVars = template.match(requestPath);
 
-                HttpServerWebSocketHandler webSocketHandler = new HttpServerWebSocketHandler(entry.handler(), sessionManager, path, pathVars);
+                String requestPath = exchange.getRequestURI().getPath();
+
+                HttpPathParamIndex pathVars =
+                    wsRegistry
+                        .tree()
+                        .match(requestPath.getBytes(StandardCharsets.UTF_8))
+                        .map(RouteTree.RouteMatch::pathVariables)
+                        .orElse(HttpPathParamIndex.empty());
+
+                HttpServerWebSocketHandler webSocketHandler =
+                    new HttpServerWebSocketHandler(
+                        entry.handler(),
+                        sessionManager,
+                        path,
+                        pathVars
+                    );
+
                 webSocketHandler.handle(exchange);
             });
         }

@@ -1,14 +1,14 @@
 package net.magnesiumbackend.json.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 import java.util.Map;
 
 /**
@@ -61,7 +61,7 @@ public record JacksonJsonProvider(ObjectMapper objectMapper) implements JsonProv
 
     @Override
     public <T> T fromRequest(Request request, Class<T> type) {
-        return fromJson(request.body(), type);
+        return fromJson(request.bodyAsBytes(), type);
     }
 
     public <T> T fromJson(ByteArrayInputStream stream, Class<T> type) {
@@ -69,6 +69,15 @@ public record JacksonJsonProvider(ObjectMapper objectMapper) implements JsonProv
             return objectMapper.readValue(stream, type);
         } catch (IOException e) {
             throw new RuntimeException("Jackson stream deserialization failed", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> deserializeToMap(InputStream in) {
+        try {
+            return objectMapper.readValue(in, new TypeReference<Map<String, Object>>() {});
+        } catch (IOException e) {
+            throw new RuntimeException("Jackson deserialization failed", e);
         }
     }
 }

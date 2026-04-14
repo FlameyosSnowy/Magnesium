@@ -1,8 +1,10 @@
 package net.magnesiumbackend.core.http.websocket;
 
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.route.RoutePathTemplate;
 import net.magnesiumbackend.core.route.RouteTree;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +36,22 @@ public class WebSocketRouteRegistry {
      * @param handler The unified WebSocket handler
      */
     public void register(String path, WebSocketHandler handler) {
-        tree.register(RoutePathTemplate.compile(path), new WebSocketHandlerWrapper(handler));
+        tree.register(RoutePathTemplate.compile(path.getBytes(StandardCharsets.UTF_8)), new WebSocketHandlerWrapper(handler));
+    }
+
+    public RouteTree<WebSocketHandlerWrapper> tree() {
+        return tree;
     }
 
     public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(String path) {
+        return tree.match(path.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(Slice path) {
+        return tree.match(path.src());
+    }
+
+    public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(byte[] path) {
         return tree.match(path);
     }
 

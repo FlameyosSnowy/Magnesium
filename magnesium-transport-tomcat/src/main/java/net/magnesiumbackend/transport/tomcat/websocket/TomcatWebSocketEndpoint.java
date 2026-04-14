@@ -5,6 +5,8 @@ import jakarta.websocket.Endpoint;
 import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.MessageHandler;
 import jakarta.websocket.Session;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
@@ -19,7 +21,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
     private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
-    private final Map<String, String> pathVariables;
+    private final HttpPathParamIndex pathVariables;
 
     private TomcatWebSocketSession session;
 
@@ -27,7 +29,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
         WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
-        Map<String, String> pathVariables
+        HttpPathParamIndex pathVariables
     ) {
         this.handler        = handler;
         this.sessionManager = sessionManager;
@@ -37,12 +39,12 @@ public class TomcatWebSocketEndpoint extends Endpoint {
 
     @Override
     public void onOpen(Session jakartaSession, EndpointConfig config) {
-        Map<String, String> headers = Map.of(); // headers not available post-handshake in JSR-356
+        HttpHeaderIndex headers = HttpHeaderIndex.empty();
         session = new TomcatWebSocketSession(jakartaSession, pathVariables, headers);
         sessionManager.add(path, session);
 
         jakartaSession.addMessageHandler(String.class,
-            (MessageHandler.Whole<String>) text -> {
+            text -> {
                 try {
                     handler.onMessage(session, DefaultWebSocketMessage.ofText(text)).join();
                 } catch (Exception e) {
@@ -51,7 +53,7 @@ public class TomcatWebSocketEndpoint extends Endpoint {
             });
 
         jakartaSession.addMessageHandler(byte[].class,
-            (MessageHandler.Whole<byte[]>) bytes -> {
+            bytes -> {
                 try {
                     handler.onMessage(session, DefaultWebSocketMessage.ofBinary(bytes)).join();
                 } catch (Exception e) {

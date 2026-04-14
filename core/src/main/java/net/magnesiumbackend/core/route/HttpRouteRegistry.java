@@ -1,7 +1,9 @@
 package net.magnesiumbackend.core.route;
 
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
@@ -32,7 +34,7 @@ public class HttpRouteRegistry {
                          HttpRouteHandler handler,
                          List<HttpFilter> filters) {
 
-        RouteDefinition def = new RouteDefinition(method, template.raw(), handler, filters);
+        RouteDefinition def = new RouteDefinition(method, template.raw().materialize(), handler, filters);
 
         RouteTree<RouteDefinition> tree =
             trees.computeIfAbsent(method, _ -> new RouteTree<>());
@@ -41,6 +43,13 @@ public class HttpRouteRegistry {
     }
 
     public Optional<RouteTree.RouteMatch<RouteDefinition>> find(HttpMethod method, String path) {
+        RouteTree<RouteDefinition> tree = trees.get(method);
+        if (tree == null) return Optional.empty();
+
+        return tree.match(path.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public Optional<RouteTree.RouteMatch<RouteDefinition>> find(HttpMethod method, byte[] path) {
         RouteTree<RouteDefinition> tree = trees.get(method);
         if (tree == null) return Optional.empty();
 

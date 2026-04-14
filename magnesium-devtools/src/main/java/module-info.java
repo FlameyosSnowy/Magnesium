@@ -1,4 +1,5 @@
 module magnesium.devtools {
+    uses net.magnesiumbackend.core.json.JsonProvider;
     requires core;
     requires java.compiler;
     requires org.jetbrains.annotations;

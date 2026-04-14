@@ -2,6 +2,8 @@ package net.magnesiumbackend.transport.undertow.websocket;
 
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -17,13 +19,13 @@ public class UndertowWebSocketSession implements WebSocketSession {
 
     private final String id = UUID.randomUUID().toString();
     private final WebSocketChannel channel;
-    private final Map<String, String> pathVariables;
-    private final Map<String, String> headers;
+    private final HttpPathParamIndex pathVariables;
+    private final HttpHeaderIndex headers;
 
     public UndertowWebSocketSession(
         WebSocketChannel channel,
-        Map<String, String> pathVariables,
-        Map<String, String> headers
+        HttpPathParamIndex pathVariables,
+        HttpHeaderIndex headers
     ) {
         this.channel       = channel;
         this.pathVariables = pathVariables;
@@ -87,8 +89,8 @@ public class UndertowWebSocketSession implements WebSocketSession {
     public boolean isOpen() { return channel.isOpen(); }
 
     @Override
-    public Map<String, String> pathVariables() { return pathVariables; }
+    public HttpPathParamIndex pathVariables() { return pathVariables; }
 
     @Override
-    public Map<String, String> headers() { return headers; }
+    public HttpHeaderIndex headers() { return headers; }
 }

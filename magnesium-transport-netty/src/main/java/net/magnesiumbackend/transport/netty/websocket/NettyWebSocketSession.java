@@ -7,13 +7,13 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.Map;
 import java.util.UUID;
 
 public class NettyWebSocketSession implements WebSocketSession {
@@ -21,16 +21,16 @@ public class NettyWebSocketSession implements WebSocketSession {
 
     private final String id;
     private final Channel channel;
-    private final Map<String, String> pathVariables;
-    private final Map<String, String> headers;
+    private final HttpPathParamIndex pathVariables;
+    private final HttpHeaderIndex headers;
     private final ChannelHandlerContext ctx;
 
-    public NettyWebSocketSession(Channel channel, Map<String, String> pathVariables, Map<String, String> headers, ChannelHandlerContext ctx) {
+    public NettyWebSocketSession(Channel channel, HttpPathParamIndex pathVariables, HttpHeaderIndex headers, ChannelHandlerContext ctx) {
         this.ctx = ctx;
         this.id            = UUID.randomUUID().toString();
         this.channel       = channel;
-        this.pathVariables = Collections.unmodifiableMap(pathVariables);
-        this.headers       = Collections.unmodifiableMap(headers);
+        this.pathVariables = pathVariables;
+        this.headers       = headers;
     }
 
     @Override public String id()                        { return id; }
@@ -50,8 +50,8 @@ public class NettyWebSocketSession implements WebSocketSession {
         return false;
     }
 
-    @Override public Map<String, String> pathVariables() { return pathVariables; }
-    @Override public Map<String, String> headers()       { return headers; }
+    @Override public HttpPathParamIndex pathVariables() { return pathVariables; }
+    @Override public HttpHeaderIndex headers()       { return headers; }
 
     @Override
     public void sendText(String text) {

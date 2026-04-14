@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
 public class MagnesiumTomcatServlet extends HttpServlet {
     private static final Logger LOGGER = LoggerFactory.getLogger(MagnesiumTomcatServlet.class);
     private static final byte[] INTERNAL_SERVER_ERROR = "Internal Server Error".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] EMPTY_BYTES = new byte[0];
 
     private final HttpRouteRegistry httpRouteRegistry;
     private final List<HttpFilter> globalFilters;
@@ -81,7 +82,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
         }
 
         RouteDefinition definition = matchedRoute.get().handler();
-        String body = readBody(req);
+        byte[] body = readBody(req);
         String query = req.getQueryString();
 
         HttpHeaderIndex headerIndex = TomcatHeaderAdapter.from(req);
@@ -149,15 +150,15 @@ public class MagnesiumTomcatServlet extends HttpServlet {
             });
     }
 
-    private String readBody(HttpServletRequest req) throws IOException {
+    private byte[] readBody(HttpServletRequest req) throws IOException {
         String contentLengthHeader = req.getHeader("Content-Length");
         try (var is = req.getInputStream()) {
             if (contentLengthHeader != null) {
                 int contentLength = Integer.parseInt(contentLengthHeader);
-                if (contentLength == 0) return "";
-                return new String(is.readNBytes(contentLength), StandardCharsets.UTF_8);
+                if (contentLength == 0) return EMPTY_BYTES;
+                return is.readNBytes(contentLength);
             }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            return is.readAllBytes();
         }
     }
 }

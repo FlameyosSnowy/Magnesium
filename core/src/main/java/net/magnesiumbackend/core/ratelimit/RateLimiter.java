@@ -1,5 +1,8 @@
 package net.magnesiumbackend.core.ratelimit;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -25,7 +28,8 @@ public final class RateLimiter {
         return state.consume();
     }
 
-    public static Builder builder() { return new Builder(); }
+    @Contract(" -> new")
+    public static @NotNull Builder builder() { return new Builder(); }
 
     public static final class Builder {
         private int      requests  = 100;

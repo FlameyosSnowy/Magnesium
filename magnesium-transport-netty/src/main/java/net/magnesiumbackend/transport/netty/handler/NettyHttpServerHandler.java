@@ -1,5 +1,6 @@
 package net.magnesiumbackend.transport.netty.handler;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
@@ -7,6 +8,7 @@ import net.magnesiumbackend.core.backpressure.QueueRejectedError;
 import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
 import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.DefaultRequest;
 import net.magnesiumbackend.core.http.Request;
@@ -15,7 +17,6 @@ import net.magnesiumbackend.core.http.response.*;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.route.*;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
-import net.magnesiumbackend.core.security.SslConfig;
 import net.magnesiumbackend.transport.netty.adapter.NettyHeaderAdapter;
 import net.magnesiumbackend.transport.netty.adapter.NettyResponseAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -27,7 +28,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -74,7 +74,6 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         int qIndex = uri.indexOf('?');
 
         String path = qIndex > 0 ? uri.substring(0, qIndex) : uri;
-        String query = qIndex > 0 ? uri.substring(qIndex + 1) : "";
 
         Optional<RouteTree.RouteMatch<RouteDefinition>> match =
             httpRouteRegistry.find(method, path);
@@ -87,11 +86,11 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         var matched = match.get();
         RouteDefinition def = matched.handler();
 
-        String body = req.content().toString(StandardCharsets.UTF_8);
-        Map<String, String> queryParams = HttpUtils.parseQueryString(query);
+        ByteBuf content = req.content();
+        byte[] body = content.array();
+        HttpQueryParamIndex queryParams = HttpUtils.parseQueryString(body);
 
         HttpHeaderIndex headers = NettyHeaderAdapter.from(req.headers());
-
         Request request = new DefaultRequest(
             def.path(),
             body,
@@ -115,7 +114,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         RouteDefinition def
     ) {
         SimpleCancellationToken token = new SimpleCancellationToken();
-        ctx.channel().closeFuture().addListener(f -> token.cancel());
+        ctx.channel().closeFuture().addListener(_ -> token.cancel());
         context.setCancellationToken(token);
 
         CompletableFuture<ResponseEntity<?>> future;

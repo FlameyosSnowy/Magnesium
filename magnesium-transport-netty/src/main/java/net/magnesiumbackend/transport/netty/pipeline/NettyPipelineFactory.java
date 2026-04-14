@@ -122,9 +122,6 @@ public final class NettyPipelineFactory {
             globalFilters,
             exceptionHandlerRegistry,
             messageConverterRegistry,
-            webSocketRouteRegistry,
-            sessionManager,
-            sslConfig,
             securityHeadersFilter,
             requestExecutor,
             timeout

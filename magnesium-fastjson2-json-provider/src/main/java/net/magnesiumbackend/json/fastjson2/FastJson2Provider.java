@@ -3,12 +3,13 @@ package net.magnesiumbackend.json.fastjson2;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONReader;
 import com.alibaba.fastjson2.JSONWriter;
+
 import net.magnesiumbackend.core.http.Request;
-import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 
 /**
@@ -57,7 +58,7 @@ public final class FastJson2Provider implements JsonProvider {
 
     @Override
     public <T> T fromRequest(Request request, Class<T> type) {
-        return fromJson(request.body(), type);
+        return fromJson(request.bodyAsBytes(), type);
     }
 
     public <T> T fromJson(ByteArrayInputStream stream, Class<T> type) {
@@ -68,5 +69,21 @@ public final class FastJson2Provider implements JsonProvider {
             throw new RuntimeException("FastJSON2 stream read failed", e);
         }
         return fromJson(bytes, type);
+    }
+
+    @Override
+    public Map<String, Object> deserializeToMap(InputStream in) {
+        try {
+            byte[] bytes = in.readAllBytes();
+            Object result = JSON.parseObject(bytes, Object.class, readerFeatures);
+            if (result instanceof Map<?, ?> map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> typedMap = (Map<String, Object>) map;
+                return typedMap;
+            }
+            throw new JsonException("JSON root must be an object", null);
+        } catch (IOException e) {
+            throw new JsonException("FastJSON2 deserialization failed", e);
+        }
     }
 }

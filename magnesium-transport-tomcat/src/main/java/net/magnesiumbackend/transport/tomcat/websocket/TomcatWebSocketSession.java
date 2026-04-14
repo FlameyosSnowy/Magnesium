@@ -1,6 +1,8 @@
 package net.magnesiumbackend.transport.tomcat.websocket;
 
 import jakarta.websocket.Session;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -8,19 +10,18 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
 
 public class TomcatWebSocketSession implements WebSocketSession {
     private static final Logger LOGGER = LoggerFactory.getLogger(TomcatWebSocketSession.class);
 
     private final Session session;
-    private final Map<String, String> pathVariables;
-    private final Map<String, String> headers;
+    private final HttpPathParamIndex pathVariables;
+    private final HttpHeaderIndex headers;
 
     public TomcatWebSocketSession(
         Session session,
-        Map<String, String> pathVariables,
-        Map<String, String> headers
+        HttpPathParamIndex pathVariables,
+        HttpHeaderIndex headers
     ) {
         this.session       = session;
         this.pathVariables = pathVariables;
@@ -94,12 +95,12 @@ public class TomcatWebSocketSession implements WebSocketSession {
     }
 
     @Override
-    public Map<String, String> pathVariables() {
+    public HttpPathParamIndex pathVariables() {
         return pathVariables;
     }
 
     @Override
-    public Map<String, String> headers() {
+    public HttpHeaderIndex headers() {
         return headers;
     }
 }

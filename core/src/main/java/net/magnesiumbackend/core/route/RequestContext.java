@@ -3,6 +3,7 @@ package net.magnesiumbackend.core.route;
 import net.magnesiumbackend.core.auth.Principal;
 import net.magnesiumbackend.core.auth.exceptions.AuthenticationException;
 import net.magnesiumbackend.core.cancellation.CancellationToken;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.headers.CookieIndex;
 import net.magnesiumbackend.core.headers.Slice;
@@ -111,7 +112,7 @@ public final class RequestContext {
         return request;
     }
 
-    public Map<String, String> pathVariables() {
+    public HttpPathParamIndex pathVariables() {
         return request.pathVariables();
     }
 

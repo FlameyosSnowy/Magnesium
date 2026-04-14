@@ -2,6 +2,8 @@ package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.DefaultWebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
@@ -33,7 +35,7 @@ public class MagnesiumWebSocket extends WebSocket {
         WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
-        Map<String, String> pathVariables
+        HttpPathParamIndex pathVariables
     ) {
         super(exchange);
         this.handler        = handler;
@@ -41,12 +43,8 @@ public class MagnesiumWebSocket extends WebSocket {
         this.path           = path;
 
         Headers requestHeaders = exchange.getRequestHeaders();
-        Map<String, String> headers = new HashMap<>(requestHeaders.size());
-        for (Map.Entry<String, List<String>> entry : requestHeaders.entrySet()) {
-            String name = entry.getKey();
-            List<String> values = entry.getValue();
-            if (!values.isEmpty()) headers.put(name, values.getFirst());
-        }
+
+        HttpHeaderIndex headers = new HttpHeaderIndex(requestHeaders);
 
         this.session = new HttpServerWebSocketSession(this, pathVariables, headers);
     }
@@ -75,7 +73,7 @@ public class MagnesiumWebSocket extends WebSocket {
                 textBuffer.append(frame.getTextPayload());
                 if (frame.isFin()) {
                     handler.onMessage(session, DefaultWebSocketMessage.ofText(textBuffer.toString())).join();
-                    textBuffer = new StringBuilder();
+                    textBuffer = new StringBuilder(32);
                 }
             }
         } catch (Exception e) {

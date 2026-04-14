@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpExchange;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import robaho.net.httpserver.websockets.WebSocket;
@@ -11,13 +12,13 @@ public class HttpServerWebSocketHandler extends robaho.net.httpserver.websockets
     private final WebSocketHandlerWrapper magnesiumHandler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
-    private final Map<String, String> pathVariables;
+    private final HttpPathParamIndex pathVariables;
 
     public HttpServerWebSocketHandler(
         WebSocketHandlerWrapper magnesiumHandler,
         WebSocketSessionManager sessionManager,
         String path,
-        Map<String, String> pathVariables
+        HttpPathParamIndex pathVariables
     ) {
         this.magnesiumHandler = magnesiumHandler;
         this.sessionManager   = sessionManager;

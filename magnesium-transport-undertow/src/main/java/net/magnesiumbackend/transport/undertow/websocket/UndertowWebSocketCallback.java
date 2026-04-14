@@ -3,8 +3,11 @@ package net.magnesiumbackend.transport.undertow.websocket;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandlerWrapper;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
+import net.magnesiumbackend.transport.undertow.adapter.UndertowHeaderAdapter;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,13 +22,13 @@ public class UndertowWebSocketCallback implements WebSocketConnectionCallback {
     private final WebSocketHandlerWrapper handler;
     private final WebSocketSessionManager sessionManager;
     private final String path;
-    private final Map<String, String> pathVariables;
+    private final HttpPathParamIndex pathVariables;
 
     public UndertowWebSocketCallback(
         WebSocketHandlerWrapper handler,
         WebSocketSessionManager sessionManager,
         String path,
-        Map<String, String> pathVariables
+        HttpPathParamIndex pathVariables
     ) {
         this.handler        = handler;
         this.sessionManager = sessionManager;
@@ -57,17 +60,7 @@ public class UndertowWebSocketCallback implements WebSocketConnectionCallback {
     }
 
     private @NotNull UndertowWebSocketSession setupHeaders(WebSocketHttpExchange exchange, WebSocketChannel channel) {
-        Map<String, List<String>> requestHeaders = exchange.getRequestHeaders();
-        Map<String, String> headers = new HashMap<>(requestHeaders.size());
-        for (Map.Entry<String, List<String>> entry : requestHeaders.entrySet()) {
-            String name = entry.getKey();
-            List<String> values = entry.getValue();
-            if (!values.isEmpty()) headers.put(name, values.getFirst());
-        }
-
-        UndertowWebSocketSession session = new UndertowWebSocketSession(
-            channel, pathVariables, headers
-        );
-        return session;
+        HttpHeaderIndex headers = UndertowHeaderAdapter.from(exchange);
+        return new UndertowWebSocketSession(channel, pathVariables, headers);
     }
 }

@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http.websocket;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -67,14 +69,14 @@ public interface WebSocketSession {
      *
      * @return map of variable name to value
      */
-    Map<String, String> pathVariables();
+    HttpPathParamIndex pathVariables();
 
     /**
      * Returns request headers from the WebSocket handshake.
      *
      * @return map of header name to value
      */
-    Map<String, String> headers();
+    HttpHeaderIndex headers();
 
     /** Sends text synchronously. */
     void sendText(String text);

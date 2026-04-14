@@ -3,6 +3,7 @@ package net.magnesiumbackend.transport.httpserver;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
 import net.magnesiumbackend.core.http.DefaultRequest;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.response.HttpResponseWriter;
@@ -90,15 +91,15 @@ public class MagnesiumHttpHandler implements HttpHandler {
 
             HttpHeaderIndex headerIndex =
                 JdkHeaderAdapter.from(requestHeaders);
-            Map<String, String> queryParams = HttpUtils.parseQueryString(queryString);
+            HttpQueryParamIndex queryParams = HttpUtils.parseQueryString(queryString);
 
-            String body;
+            byte[] body;
             String contentLengthHeader = requestHeaders.getFirst("Content-Length");
             if (contentLengthHeader != null) {
                 int len = Integer.parseInt(contentLengthHeader);
-                body = len == 0 ? "" : new String(exchange.getRequestBody().readNBytes(len), StandardCharsets.UTF_8);
+                body = len == 0 ? new byte[0] : exchange.getRequestBody().readNBytes(len);
             } else {
-                body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                body = exchange.getRequestBody().readAllBytes();
             }
 
             DefaultRequest request = new DefaultRequest(

@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http;
 
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
+import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.response.HttpVersion;
 import net.magnesiumbackend.core.route.RequestContext;
@@ -8,6 +10,7 @@ import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.headers.Slice;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,7 +74,11 @@ public interface Request {
      *
      * @return the body content, or empty string if none
      */
-    String body();
+    byte[] bodyAsBytes();
+
+    default String body() {
+        return new String(bodyAsBytes(), StandardCharsets.UTF_8);
+    }
 
     /**
      * Returns the HTTP version.
@@ -85,7 +92,7 @@ public interface Request {
      *
      * @return map of variable name to value
      */
-    Map<String, String> pathVariables();
+    HttpPathParamIndex pathVariables();
 
     /**
      * Returns the parsed HTTP headers.
@@ -99,7 +106,7 @@ public interface Request {
      *
      * @return map of parameter name to value
      */
-    Map<String, String> queryParams();
+    HttpQueryParamIndex queryParams();
 
     /**
      * Returns a header value by name.

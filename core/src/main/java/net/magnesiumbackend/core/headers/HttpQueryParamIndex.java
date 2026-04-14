@@ -4,11 +4,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public final class HttpQueryParamIndex {
+
     private static final byte[] EMPTY = new byte[0];
-    private static final byte[][] EMPTY_KEYS = new byte[0][];
-    private static final int[] EMPTY_INT_ARRAY = new int[0];
-    private static final Slice[][] EMPTY_VALUES = new Slice[0][2];
-    private static final String[][] EMPTY_DECODED_CACHE = new String[0][2];
+    private static final HttpQueryParamIndex EMPTY_INDEX = new HttpQueryParamIndex(EMPTY);
 
     private byte[][] keys;
     private int[] hashes;
@@ -26,29 +24,22 @@ public final class HttpQueryParamIndex {
     private final byte[] raw;
 
     public HttpQueryParamIndex(byte[] raw) {
-        if (raw == null) {
+        if (raw == null || raw.length == 0) {
             this.raw = EMPTY;
-            init(0);
+            init(16);
             return;
         }
+
         this.raw = raw;
-
-        int capacity = 16;
-        init(capacity);
-
+        init(16);
         parse();
     }
 
-    private void init(int capacity) {
-        if (capacity < 0) {
-            keys = EMPTY_KEYS;
-            hashes = EMPTY_INT_ARRAY;
-            values = EMPTY_VALUES;
-            counts = EMPTY_INT_ARRAY;
-            decodedCache = EMPTY_DECODED_CACHE;
-            return;
-        }
+    public static HttpQueryParamIndex empty() {
+        return EMPTY_INDEX;
+    }
 
+    private void init(int capacity) {
         keys = new byte[capacity][];
         hashes = new int[capacity];
 
@@ -58,6 +49,10 @@ public final class HttpQueryParamIndex {
         decodedCache = new String[capacity][2];
 
         mask = capacity - 1;
+    }
+
+    private boolean needsResize() {
+        return size + 1 > keys.length * LOAD_FACTOR;
     }
 
     private void resize() {
@@ -80,26 +75,18 @@ public final class HttpQueryParamIndex {
         }
     }
 
-    private boolean needsResize() {
-        return size + 1 > keys.length * LOAD_FACTOR;
-    }
-
     private void parse() {
         int i = 0;
+        int len = raw.length;
 
-        byte[] raw = this.raw;
-        int length = raw.length;
-        while (i < length) {
+        while (i < len) {
             int keyStart = i;
             int keyEnd = -1;
 
-            while (i < length) {
+            while (i < len) {
                 byte c = raw[i];
-                if (c == '=' && keyEnd == -1) {
-                    keyEnd = i;
-                } else if (c == '&') {
-                    break;
-                }
+                if (c == '=' && keyEnd == -1) keyEnd = i;
+                else if (c == '&') break;
                 i++;
             }
 
@@ -107,28 +94,22 @@ public final class HttpQueryParamIndex {
 
             if (keyEnd > keyStart) {
                 byte[] key = Arrays.copyOfRange(raw, keyStart, keyEnd);
-                Slice value = new Slice(raw, keyEnd + 1, end - keyEnd - 1);
 
-                int h = hash(key);
-                putInternal(key, h, value);
+                Slice value = new Slice(
+                    raw,
+                    keyEnd + 1,
+                    end - keyEnd - 1
+                );
+
+                putInternal(key, hash(key), value);
             }
 
             i++;
         }
     }
 
-    private static int hash(byte[] key) {
-        int h = 1;
-        for (byte b : key) {
-            h = 31 * h + (b & 0xFF);
-        }
-        return h;
-    }
-
     private void putInternal(byte[] key, int hash, Slice value) {
-        if (needsResize()) {
-            resize();
-        }
+        if (needsResize()) resize();
 
         int idx = hash & mask;
 
@@ -138,10 +119,8 @@ public final class HttpQueryParamIndex {
             if (existing == null) {
                 keys[idx] = key;
                 hashes[idx] = hash;
-
                 values[idx][0] = value;
                 counts[idx] = 1;
-
                 size++;
                 return;
             }
@@ -167,38 +146,12 @@ public final class HttpQueryParamIndex {
         counts[idx]++;
     }
 
-    public Slice getSlice(byte[] key) {
-        int idx = find(key);
-        if (idx < 0) return null;
-        return values[idx][0];
-    }
-
-    public String get(byte[] key) {
-        int idx = find(key);
-        if (idx < 0) return null;
-
-        if (decodedCache[idx][0] != null) {
-            return decodedCache[idx][0];
+    private static int hash(byte[] key) {
+        int h = 1;
+        for (byte b : key) {
+            h = 31 * h + (b & 0xFF);
         }
-
-        return decodedCache[idx][0] = decode(values[idx][0]);
-    }
-
-    public String get(byte[] key, int index) {
-        int idx = find(key);
-        if (idx < 0 || index >= counts[idx]) return null;
-
-        if (decodedCache[idx][index] != null) {
-            return decodedCache[idx][index];
-        }
-
-        return decodedCache[idx][index] =
-            decode(values[idx][index]);
-    }
-
-    public int size(byte[] key) {
-        int idx = find(key);
-        return idx < 0 ? 0 : counts[idx];
+        return h;
     }
 
     private int find(byte[] key) {
@@ -206,9 +159,9 @@ public final class HttpQueryParamIndex {
         int idx = h & mask;
 
         byte[][] keys = this.keys;
+        int[] hashes = this.hashes;
         while (true) {
             byte[] k = keys[idx];
-
             if (k == null) return -1;
 
             if (hashes[idx] == h && equals(k, key)) {
@@ -218,10 +171,6 @@ public final class HttpQueryParamIndex {
             idx = (idx + 1) & mask;
         }
     }
-
-    // ----------------------------
-    // Byte compare (critical path)
-    // ----------------------------
 
     private static boolean equals(byte[] a, byte[] b) {
         int length = a.length;
@@ -233,19 +182,110 @@ public final class HttpQueryParamIndex {
         return true;
     }
 
-    private String decode(Slice slice) {
-        return new String(
-            slice.src(),
-            slice.start(),
-            slice.len(),
-            StandardCharsets.UTF_8
-        );
-    }
-    public Slice getSlice(String key) {
-        return getSlice(key.getBytes(StandardCharsets.UTF_8));
-    }
-
     public String get(String key) {
         return get(key.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String get(byte[] key) {
+        int idx = find(key);
+        if (idx < 0) return null;
+
+        if (decodedCache[idx][0] != null) {
+            return decodedCache[idx][0];
+        }
+
+        return decodedCache[idx][0] =
+            FastUrlDecoder.decode(values[idx][0]);
+    }
+
+    public int size(byte[] key) {
+        int idx = find(key);
+        return idx < 0 ? 0 : counts[idx];
+    }
+
+    public void forEach(QueryParamConsumer consumer) {
+        byte[][] keys = this.keys;
+        int[] counts = this.counts;
+        Slice[][] values = this.values;
+        int length = keys.length;
+        for (int i = 0; i < length; i++) {
+            byte[] key = keys[i];
+            if (key == null) continue;
+
+            int count = counts[i];
+            Slice[] vals = values[i];
+
+            for (int j = 0; j < count; j++) {
+                consumer.accept(key, vals[j]);
+            }
+        }
+    }
+
+    public interface QueryParamConsumer {
+        void accept(byte[] key, Slice value);
+    }
+
+    public Iterator iterator() {
+        return new Iterator();
+    }
+
+    public final class Iterator {
+
+        private int bucketIndex = -1;
+        private int valueIndex = 0;
+
+        private byte[] currentKey;
+        private Slice[] currentValues;
+        private int currentCount;
+
+        public boolean next() {
+            // Move within current bucket first
+            if (currentKey != null && valueIndex < currentCount) {
+                return true;
+            }
+
+            // Move to next bucket
+            byte[][] keys = HttpQueryParamIndex.this.keys;
+            int[] counts = HttpQueryParamIndex.this.counts;
+            Slice[][] values = HttpQueryParamIndex.this.values;
+
+            int len = keys.length;
+
+            while (++bucketIndex < len) {
+                byte[] key = keys[bucketIndex];
+                if (key == null) continue;
+
+                currentKey = key;
+                currentValues = values[bucketIndex];
+                currentCount = counts[bucketIndex];
+                valueIndex = 0;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public void advance() {
+            valueIndex++;
+        }
+
+        public byte[] key() {
+            return currentKey;
+        }
+
+        public Slice valueSlice() {
+            return currentValues[valueIndex];
+        }
+
+        public String value() {
+            String[][] cache = HttpQueryParamIndex.this.decodedCache;
+
+            String cached = cache[bucketIndex][valueIndex];
+            if (cached != null) return cached;
+
+            return cache[bucketIndex][valueIndex] =
+                FastUrlDecoder.decode(currentValues[valueIndex]);
+        }
     }
 }

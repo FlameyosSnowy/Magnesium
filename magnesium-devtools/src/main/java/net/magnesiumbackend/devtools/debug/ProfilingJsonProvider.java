@@ -5,10 +5,12 @@ import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.ServiceLoader;
 
 /**
@@ -139,6 +141,24 @@ public record ProfilingJsonProvider(JsonProvider delegate) implements JsonProvid
         }
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T fromJson(byte[] json, Class<T> type) {
+        if (!MagnesiumDebugger.isEnabled()) {
+            // Try to delegate if supported, otherwise fall back
+            return delegate.fromJson(json, (Class<T>) Object.class);
+        }
+
+        long start = System.nanoTime();
+        try {
+            return delegate.fromJson(json, (Class<T>) Object.class);
+        } finally {
+            long nanos = System.nanoTime() - start;
+            Class<?> rawType = getRawType(type);
+            MagnesiumDebugger.requestDeserialized(rawType, nanos);
+        }
+    }
+
     @Override
     public <T> T fromRequest(Request request, Class<T> type) {
         if (!MagnesiumDebugger.isEnabled()) {
@@ -167,6 +187,21 @@ public record ProfilingJsonProvider(JsonProvider delegate) implements JsonProvid
             long nanos = System.nanoTime() - start;
             Class<?> type = value != null ? value.getClass() : Object.class;
             MagnesiumDebugger.responseSerialized(type, nanos);
+        }
+    }
+
+    @Override
+    public Map<String, Object> deserializeToMap(InputStream in) {
+        if (!MagnesiumDebugger.isEnabled()) {
+            return delegate.deserializeToMap(in);
+        }
+
+        long start = System.nanoTime();
+        try {
+            return delegate.deserializeToMap(in);
+        } finally {
+            long nanos = System.nanoTime() - start;
+            MagnesiumDebugger.requestDeserialized(Map.class, nanos);
         }
     }
 
@@ -298,6 +333,17 @@ public record ProfilingJsonProvider(JsonProvider delegate) implements JsonProvid
 
         @Override
         public <T> T fromJson(String json, Class<T> type) {
+            long start = System.nanoTime();
+            try {
+                return delegate.fromJson(json, type);
+            } finally {
+                long nanos = System.nanoTime() - start;
+                MagnesiumDebugger.requestDeserialized(boundType, nanos);
+            }
+        }
+
+        @Override
+        public <T> T fromJson(byte[] json, Class<T> type) {
             long start = System.nanoTime();
             try {
                 return delegate.fromJson(json, type);

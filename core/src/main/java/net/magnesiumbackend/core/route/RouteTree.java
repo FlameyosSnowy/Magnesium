@@ -1,31 +1,29 @@
 package net.magnesiumbackend.core.route;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
+import net.magnesiumbackend.core.headers.Slice;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class RouteTree<T> {
 
     private final RouteNode<T> root = new RouteNode<>();
 
     private volatile List<RouteEntry<T>> cachedEntries = null;
+    private volatile List<RouteDumpEntry<T>> cachedDump = null;
 
-    public void register(@NotNull RoutePathTemplate template, T handler) {
+    public void register(RoutePathTemplate template, T handler) {
         RouteNode<T> current = root;
-        String[] literals = template.literals();
-        String[] varNames = template.varNames();
 
-        int literalsLength = literals.length;
-        for (int i = 0; i < literalsLength; i++) {
-            String literal = literals[i];
-            String varName = (varNames != null && i < varNames.length) ? varNames[i] : null;
+        Slice[] literals = template.literals();
+        Slice[] varNames = template.varNames();
+
+        int length = literals.length;
+
+        for (int i = 0; i < length; i++) {
+            Slice literal = literals[i];
+            Slice varName = (varNames != null && i < varNames.length) ? varNames[i] : null;
 
             if (literal != null) {
                 current = current.addStaticChild(literal);
@@ -44,83 +42,58 @@ public class RouteTree<T> {
         invalidateCache();
     }
 
-    public boolean unregister(RoutePathTemplate template) {
+    // ----------------------------
+    // Match
+    // ----------------------------
+
+    public Optional<RouteMatch<T>> match(byte[] pathBytes) {
         RouteNode<T> current = root;
-        String[] literals = template.literals();
-        String[] varNames = template.varNames();
 
-        int literalsLength = literals.length;
-        int varNamesLength = varNames.length;
-        for (int i = 0; i < literalsLength; i++) {
-            String literal = literals[i];
-            String varName = i < varNamesLength ? varNames[i] : null;
-
-            if (literal != null) {
-                current = current.getStaticChild(literal);
-            } else if (varName != null) {
-                current = current.variableChild;
-            }
-
-            if (current == null) return false;
-        }
-
-        if (current.handler == null) return false;
-        current.handler = null;
-        invalidateCache();
-        return true;
-    }
-
-    public Optional<RouteTree.RouteMatch<T>> match(CharSequence path) {
-        RouteNode<T> current = root;
         int varCount = 0;
-        String[] varNames = null;
-        String[] varValues = null;
+        Slice[] varNames = null;
+        Slice[] varValues = null;
 
-        int length = path.length();
         int start = 0;
+        int length = pathBytes.length;
 
         while (start < length) {
-            // skip '/'
-            if (path.charAt(start) == '/') {
+
+            if (pathBytes[start] == '/') {
                 start++;
                 continue;
             }
 
             int end = start;
-            while (end < length && path.charAt(end) != '/') {
+            while (end < length && pathBytes[end] != '/') {
                 end++;
             }
 
+            int segmentLen = end - start;
+
             RouteNode<T> next = null;
+
+            Slice segment = new Slice(pathBytes, start, segmentLen);
+
+            Slice[] keys = current.staticKeys;
             RouteNode<T>[] children = current.staticChildren;
-            int staticChildrenLength = children.length;
-            String[] keys = current.staticKeys;
-            for (int i = 0; i < staticChildrenLength; i++) {
-                String key = keys[i];
+
+            for (int i = 0; i < keys.length; i++) {
+                Slice key = keys[i];
                 if (key == null) continue;
 
-                int keyLength = key.length();
-                if (keyLength == end - start) {
-                    boolean match = true;
-                    for (int j = 0; j < keyLength; j++) {
-                        if (key.charAt(j) != path.charAt(start + j)) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match) {
-                        next = children[i];
-                        break;
-                    }
+                if (equals(key, segment)) {
+                    next = children[i];
+                    break;
                 }
             }
 
             if (next != null) {
                 current = next;
             } else if (current.variableChild != null) {
+
                 if (varNames == null) {
-                    varNames = new String[4];
-                    varValues = new String[4];
+                    varNames = new Slice[4];
+                    varValues = new Slice[4];
                 } else if (varCount == varNames.length) {
                     int newSize = varNames.length * 2;
                     varNames = Arrays.copyOf(varNames, newSize);
@@ -128,7 +101,7 @@ public class RouteTree<T> {
                 }
 
                 varNames[varCount] = current.variableChild.variableName;
-                varValues[varCount] = path.subSequence(start, end).toString();
+                varValues[varCount] = new Slice(pathBytes, start, segmentLen);
                 varCount++;
 
                 current = current.variableChild;
@@ -141,119 +114,15 @@ public class RouteTree<T> {
 
         if (current.handler == null) return Optional.empty();
 
-        Map<String, String> vars = Map.of();
-        if (varCount > 0) {
-            Map<String, String> m = new HashMap<>(varCount * 2);
-            for (int i = 0; i < varCount; i++) {
-                m.put(varNames[i], varValues[i]);
-            }
-            vars = Map.copyOf(m);
-        }
+        HttpPathParamIndex vars =
+            varCount == 0
+                ? HttpPathParamIndex.empty()
+                : HttpPathParamIndex.of(varNames, varValues);
 
-        return Optional.of(new RouteTree.RouteMatch<>(current.handler, vars));
+        return Optional.of(new RouteMatch<>(current.handler, vars));
     }
 
-    public record RouteMatch<T>(T handler, Map<String, String> pathVariables) {
-    }
-
-    @SuppressWarnings("unchecked")
-    public static final class RouteNode<T> {
-        private String[] staticKeys = new String[0];
-        private RouteNode<T>[] staticChildren = (RouteNode<T>[]) new RouteNode[0];
-        private RouteNode<T> variableChild;
-        private String variableName;
-        private T handler;
-
-        private RouteNode<T> addStaticChild(String key) {
-            int length = staticKeys.length;
-            for (int i = 0; i < length; i++) {
-                String staticKey = staticKeys[i];
-                if (staticKey != null && staticKey.equals(key)) return staticChildren[i];
-            }
-
-            int max = Math.max(length + 4, length * 2);
-
-            staticKeys = Arrays.copyOf(staticKeys, max);
-            staticChildren = Arrays.copyOf(staticChildren, max);
-            RouteNode<T> child = new RouteNode<>();
-            staticKeys[length] = key;
-            staticChildren[length] = child;
-            return child;
-        }
-
-        private RouteNode<T> addVariableChild(String name) {
-            if (variableChild == null) {
-                variableChild = new RouteNode<>();
-                variableChild.variableName = name;
-            }
-            return variableChild;
-        }
-
-        @Contract(pure = true)
-        private @Nullable RouteNode<T> getStaticChild(String key) {
-            String[] keys = staticKeys;
-            RouteNode<T>[] children = staticChildren;
-            int length = keys.length;
-            for (int i = 0; i < length; i++) {
-                String staticKey = keys[i];
-                if (staticKey != null && staticKey.equals(key)) return children[i];
-            }
-            return null;
-        }
-    }
-
-    public record RouteDumpEntry<T>(
-        String path,
-        T handler
-    ) {}
-
-    public List<RouteDumpEntry<T>> dump() {
-        List<RouteDumpEntry<T>> result = new ArrayList<>(16);
-        StringBuilder path = new StringBuilder(32);
-
-        dumpRecursive(root, path, result);
-
-        return List.copyOf(result);
-    }
-
-    private void dumpRecursive(
-        RouteNode<T> node,
-        StringBuilder path,
-        java.util.List<RouteDumpEntry<T>> out
-    ) {
-        int originalLength = path.length();
-
-        // If this node has a handler, record it
-        T handler = node.handler;
-        if (handler != null) {
-            String finalPath = path.isEmpty() ? "/" : path.toString();
-            out.add(new RouteDumpEntry<>(finalPath, handler));
-        }
-
-        // Static children
-        String[] keys = node.staticKeys;
-        int length = keys.length;
-        RouteNode<T>[] children = node.staticChildren;
-        for (int i = 0; i < length; i++) {
-            String key = keys[i];
-            RouteNode<T> child = children[i];
-
-            if (key == null || child == null) continue;
-
-            path.append('/').append(key);
-            dumpRecursive(child, path, out);
-            path.setLength(originalLength);
-        }
-
-        // Variable child
-        RouteNode<T> variableChild = node.variableChild;
-        if (variableChild != null) {
-            path.append("/{").append(variableChild.variableName).append('}');
-            dumpRecursive(variableChild, path, out);
-            path.setLength(originalLength);
-        }
-    }
-
+    public record RouteMatch<T>(T handler, HttpPathParamIndex pathVariables) {}
 
     public record RouteEntry<T>(String path, T handler) {}
 
@@ -268,41 +137,155 @@ public class RouteTree<T> {
         }
     }
 
-    private void invalidateCache() {
-        cachedEntries = null;
-    }
-
     private List<RouteEntry<T>> buildEntries() {
         List<RouteEntry<T>> result = new ArrayList<>(16);
-        buildEntriesRecursive(root, new StringBuilder(32), result);
+        buildRecursive(root, new ArrayList<>(), result);
         return List.copyOf(result);
     }
 
-    private void buildEntriesRecursive(
-        RouteNode<T> node,
-        StringBuilder path,
-        List<RouteEntry<T>> out
-    ) {
-        int originalLength = path.length();
+    private void buildRecursive(RouteNode<T> node,
+                                List<Slice> path,
+                                List<RouteEntry<T>> out) {
 
         if (node.handler != null) {
-            out.add(new RouteEntry<>(path.isEmpty() ? "/" : path.toString(), node.handler));
+            out.add(new RouteEntry<>(render(path), node.handler));
         }
 
-        String[] keys = node.staticKeys;
-        RouteNode<T>[] children = node.staticChildren;
-        int length = keys.length;
+        Slice[] staticKeys = node.staticKeys;
+        int length = staticKeys.length;
         for (int i = 0; i < length; i++) {
-            if (keys[i] == null || children[i] == null) continue;
-            path.append('/').append(keys[i]);
-            buildEntriesRecursive(children[i], path, out);
-            path.setLength(originalLength);
+            if (staticKeys[i] == null) continue;
+
+            path.add(staticKeys[i]);
+            buildRecursive(node.staticChildren[i], path, out);
+            path.removeLast();
         }
 
         if (node.variableChild != null) {
-            path.append("/{").append(node.variableChild.variableName).append('}');
-            buildEntriesRecursive(node.variableChild, path, out);
-            path.setLength(originalLength);
+            path.add(node.variableChild.variableName);
+            buildRecursive(node.variableChild, path, out);
+            path.removeLast();
         }
+    }
+
+    private static String toString(Slice s) {
+        return new String(s.src(), s.start(), s.length(), StandardCharsets.UTF_8);
+    }
+
+    private void invalidateCache() {
+        cachedEntries = null;
+        cachedDump = null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static final class RouteNode<T> {
+
+        private Slice[] staticKeys = new Slice[0];
+        private RouteNode<T>[] staticChildren = (RouteNode<T>[]) new RouteNode[0];
+
+        private RouteNode<T> variableChild;
+        private Slice variableName;
+
+        private T handler;
+
+        private RouteNode<T> addStaticChild(Slice key) {
+            int length = staticKeys.length;
+            for (int i = 0; i < length; i++) {
+                if (key.equals(staticKeys[i])) {
+                    return staticChildren[i];
+                }
+            }
+
+            int max = Math.max(length + 4, length * 2);
+
+            staticKeys = Arrays.copyOf(staticKeys, max);
+            staticChildren = Arrays.copyOf(staticChildren, max);
+
+            RouteNode<T> child = new RouteNode<>();
+
+            staticKeys[length] = key;
+            staticChildren[length] = child;
+
+            return child;
+        }
+
+        private RouteNode<T> addVariableChild(Slice name) {
+            if (variableChild == null) {
+                variableChild = new RouteNode<>();
+                variableChild.variableName = name;
+            }
+            return variableChild;
+        }
+    }
+
+    private static boolean equals(Slice a, Slice b) {
+        if (a.length() != b.length()) return false;
+
+        byte[] ad = a.src();
+        byte[] bd = b.src();
+
+        int ao = a.start();
+        int bo = b.start();
+        int len = a.length();
+
+        for (int i = 0; i < len; i++) {
+            if (ad[ao + i] != bd[bo + i]) return false;
+        }
+
+        return true;
+    }
+
+    public record RouteDumpEntry<T>(
+        String path,
+        T handler
+    ) {}
+
+    public List<RouteDumpEntry<T>> dump() {
+        List<RouteDumpEntry<T>> cached = cachedDump;
+        if (cached != null) return cached;
+
+        List<RouteDumpEntry<T>> out = new ArrayList<>(16);
+        dumpRecursive(root, new ArrayList<>(), out);
+        cachedDump = out;
+        return List.copyOf(out);
+    }
+
+    private void dumpRecursive(
+        RouteNode<T> node,
+        List<Slice> path,
+        List<RouteDumpEntry<T>> out
+    ) {
+        if (node.handler != null) {
+            out.add(new RouteDumpEntry<>(render(path), node.handler));
+        }
+
+        // static routes
+        for (int i = 0; i < node.staticKeys.length; i++) {
+            Slice key = node.staticKeys[i];
+            if (key == null) continue;
+
+            path.add(key);
+            dumpRecursive(node.staticChildren[i], path, out);
+            path.remove(path.size() - 1);
+        }
+
+        // variable route
+        if (node.variableChild != null) {
+            path.add(node.variableChild.variableName);
+            dumpRecursive(node.variableChild, path, out);
+            path.remove(path.size() - 1);
+        }
+    }
+
+    private String render(List<Slice> segments) {
+        if (segments.isEmpty()) return "/";
+
+        StringBuilder sb = new StringBuilder(64);
+
+        for (Slice s : segments) {
+            sb.append('/').append(toString(s));
+        }
+
+        return sb.toString();
     }
 }

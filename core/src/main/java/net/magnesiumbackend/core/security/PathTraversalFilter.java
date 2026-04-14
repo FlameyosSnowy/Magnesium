@@ -1,5 +1,8 @@
 package net.magnesiumbackend.core.security;
 
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
+import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.response.ErrorResponse;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.FilterChain;
@@ -42,17 +45,21 @@ public final class PathTraversalFilter implements HttpFilter {
     @Override
     public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
         // path variables
-        for (Map.Entry<String, String> entry : ctx.pathVariables().entrySet()) {
-            if (isDangerous(entry.getValue())) {
+        for (HttpPathParamIndex.Entry entry : ctx.pathVariables()) {
+            if (isDangerous(entry.value())) {
                 return bad("Path variable contains illegal sequence.");
             }
         }
 
         // query params
-        for (Map.Entry<String, String> entry : ctx.request().queryParams().entrySet()) {
-            if (isDangerous(entry.getValue())) {
+        HttpQueryParamIndex httpQueryParamIndex = ctx.request().queryParams();
+        HttpQueryParamIndex.Iterator iterator = httpQueryParamIndex.iterator();
+        while (iterator.next()) {
+            Slice value = iterator.valueSlice();
+            if (isDangerous(value)) {
                 return bad("Query parameter contains illegal sequence.");
             }
+            iterator.advance();
         }
 
         return chain.next(ctx);
@@ -62,40 +69,101 @@ public final class PathTraversalFilter implements HttpFilter {
         return ResponseEntity.of(400, new ErrorResponse("invalid_path", msg));
     }
 
-    private boolean isDangerous(String input) {
-        if (input == null || input.isEmpty()) return false;
+    private boolean isDangerous(Slice slice) {
+        if (slice == null || slice.len() == 0) return false;
 
-        // Unicode normalization (kills homoglyph tricks)
-        String normalized = Normalizer.normalize(input, Normalizer.Form.NFKC);
-
-        char[] buf = normalized.toCharArray();
-        int len = multiDecode(buf);
+        byte[] src = slice.src();
+        int start = slice.start();
+        int end = start + slice.len();
 
         int dots = 0;
 
-        for (int i = 0; i < len; i++) {
-            char c = buf[i];
+        for (int i = start; i < end; i++) {
+            byte b = src[i];
 
-            // normalize case
-            if (c >= 'A' && c <= 'Z') c += 32;
+            // fast lowercase
+            if (b >= 'A' && b <= 'Z') b += 32;
 
             // normalize slashes
-            if (c == '\\') c = '/';
+            if (b == '\\') b = '/';
 
             // null byte
-            if (c == 0) return true;
+            if (b == 0) return true;
 
             // control chars
+            if (b < 32) return true;
+
+            if (b == '.') {
+                dots++;
+                if (dots >= 2) return true;
+                continue;
+            }
+
+            if (b == '/') {
+                if (dots >= 2) return true;
+                dots = 0;
+                continue;
+            }
+
+            dots = 0;
+
+            // encoded attack detection trigger
+            if (b == '%' || b == '+' || (b & 0x80) != 0) {
+                return slowPath(slice);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean slowPath(Slice slice) {
+        char[] buf = toCharArray(slice);
+
+        int len = multiDecode(buf);
+
+        String normalized = java.text.Normalizer.normalize(
+            new String(buf, 0, len),
+            java.text.Normalizer.Form.NFKC
+        );
+
+        return checkNormalized(normalized);
+    }
+
+    private char[] toCharArray(Slice slice) {
+        byte[] src = slice.src();
+        int start = slice.start();
+        int len = slice.len();
+
+        char[] out = new char[len];
+
+        for (int i = 0; i < len; i++) {
+            out[i] = (char) (src[start + i] & 0xFF);
+        }
+
+        return out;
+    }
+
+    private boolean checkNormalized(String input) {
+        int dots = 0;
+        int len = input.length();
+
+        for (int i = 0; i < len; i++) {
+            char c = input.charAt(i);
+
+            if (c >= 'A' && c <= 'Z') c += 32;
+            if (c == '\\') c = '/';
+
+            if (c == 0) return true;
             if (c < 32) return true;
 
             if (c == '.') {
                 dots++;
-                if (dots >= 2) return true; // ".."
+                if (dots >= 2) return true;
                 continue;
             }
 
             if (c == '/') {
-                if (dots >= 2) return true; // "../"
+                if (dots >= 2) return true;
                 dots = 0;
                 continue;
             }

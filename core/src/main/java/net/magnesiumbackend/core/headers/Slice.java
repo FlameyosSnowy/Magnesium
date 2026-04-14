@@ -1,5 +1,8 @@
 package net.magnesiumbackend.core.headers;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -24,6 +27,11 @@ import java.nio.charset.StandardCharsets;
  * @param len   the length of this slice
  */
 public record Slice(byte[] src, int start, int len) {
+    @Contract("_ -> new")
+    public static @NotNull Slice of(String key) {
+        return new Slice(key.getBytes(StandardCharsets.UTF_8), 0, key.length());
+    }
+
     public int length() {
         return len;
     }
@@ -102,7 +110,8 @@ public record Slice(byte[] src, int start, int len) {
         return new Slice(src, start + from, newLen);
     }
 
-    public Slice slice(int from) {
+    @Contract("_ -> new")
+    public @NotNull Slice slice(int from) {
         if (from < 0 || from > len) {
             throw new IndexOutOfBoundsException();
         }

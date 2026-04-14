@@ -3,7 +3,8 @@ package net.magnesiumbackend.core.json;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.util.Map;
 
 /**
  * Strategy interface for JSON serialization and deserialization.
@@ -51,6 +52,17 @@ public interface JsonProvider {
     <T> T fromJson(String json, Class<T> type);
 
     /**
+     * Deserializes a JSON string into an instance of {@code type}.
+     *
+     * @param json  the JSON string to parse; must not be {@code null}
+     * @param type  the target type; must not be {@code null}
+     * @param <T>   the target type parameter
+     * @return a new instance of {@code type} populated from {@code json}
+     * @throws JsonException if deserialization fails or the JSON is malformed
+     */
+    <T> T fromJson(byte[] json, Class<T> type);
+
+    /**
      * Deserializes the body of {@code request} into an instance of {@code type}.
      *
      * <p>Shorthand for {@code fromJson(request.body(), type)}.
@@ -62,7 +74,7 @@ public interface JsonProvider {
      * @throws JsonException if deserialization fails or the body is malformed JSON
      */
     default <T> T fromRequest(Request request, Class<T> type) {
-        return fromJson(request.body(), type);
+        return fromJson(request.bodyAsBytes(), type);
     }
 
     /**
@@ -88,6 +100,17 @@ public interface JsonProvider {
             toJsonBytes(value),
             java.util.Map.of("Content-Type", "application/json")
         );
+    }
+
+    /**
+     * Deserializes JSON from an InputStream into a Map.
+     *
+     * @param in the InputStream containing JSON; must not be {@code null}
+     * @return a Map representing the JSON object structure
+     * @throws JsonException if deserialization fails or the JSON is malformed
+     */
+    default Map<String, Object> deserializeToMap(InputStream in) {
+        throw new UnsupportedOperationException("deserializeToMap not implemented");
     }
 
     /**

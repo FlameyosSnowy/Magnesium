@@ -14,6 +14,7 @@ import net.magnesiumbackend.core.route.RoutePathTemplate;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -89,7 +90,7 @@ public class MagnesiumHttpServer {
          * @return this builder, for chaining
          */
         public Builder route(HttpMethod mode, String path, HttpRouteHandler handler) {
-            routes.register(mode, RoutePathTemplate.compile(path), handler, List.of());
+            routes.register(mode, RoutePathTemplate.compile(path.getBytes(StandardCharsets.UTF_8)), handler, List.of());
             return this;
         }
 
@@ -147,7 +148,7 @@ public class MagnesiumHttpServer {
          * @return this builder, for chaining
          */
         public Builder route(HttpMethod mode, String path, HttpRouteHandler handler, List<HttpFilter> filters) {
-            routes.register(mode, RoutePathTemplate.compile(path), handler, filters);
+            routes.register(mode, RoutePathTemplate.compile(path.getBytes(StandardCharsets.UTF_8)), handler, filters);
             return this;
         }
 

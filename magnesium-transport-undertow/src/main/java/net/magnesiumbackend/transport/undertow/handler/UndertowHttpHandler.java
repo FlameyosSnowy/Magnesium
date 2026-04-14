@@ -9,7 +9,6 @@ import net.magnesiumbackend.core.http.response.HttpResponseWriter;
 import net.magnesiumbackend.core.http.response.HttpUtils;
 import net.magnesiumbackend.core.http.response.HttpVersion;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
-import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
@@ -29,16 +28,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 public class UndertowHttpHandler implements HttpHandler {
     private static final String NOT_FOUND = "Not Found";
     private static final Logger LOGGER = LoggerFactory.getLogger(UndertowHttpHandler.class);
+    private static final byte[] EMPTY_BYTES = new byte[0];
 
     private final HttpRouteRegistry httpRouteRegistry;
     private final List<HttpFilter> globalFilters;
@@ -104,7 +102,7 @@ public class UndertowHttpHandler implements HttpHandler {
             RouteTree.RouteMatch<RouteDefinition> matched = matchedRoute.get();
             RouteDefinition definition = matched.handler();
 
-            String body = readBody(exchange);
+            byte[] body = readBody(exchange);
 
             String query = exchange.getQueryString();
 
@@ -168,15 +166,15 @@ public class UndertowHttpHandler implements HttpHandler {
     }
 
 
-    private String readBody(HttpServerExchange exchange) throws IOException {
+    private byte[] readBody(HttpServerExchange exchange) throws IOException {
         String contentLengthHeader = exchange.getRequestHeaders().getFirst(Headers.CONTENT_LENGTH);
         try (InputStream is = exchange.getInputStream()) {
             if (contentLengthHeader != null) {
                 int contentLength = Integer.parseInt(contentLengthHeader);
-                if (contentLength == 0) return "";
-                return new String(is.readNBytes(contentLength), StandardCharsets.UTF_8);
+                if (contentLength == 0) return EMPTY_BYTES;
+                return is.readNBytes(contentLength);
             }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            return is.readAllBytes();
         }
     }
 

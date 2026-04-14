@@ -1,5 +1,7 @@
 package net.magnesiumbackend.transport.httpserver;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -8,7 +10,6 @@ import robaho.net.httpserver.websockets.CloseCode;
 import robaho.net.httpserver.websockets.WebSocket;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 
 public class HttpServerWebSocketSession implements WebSocketSession {
@@ -16,13 +17,13 @@ public class HttpServerWebSocketSession implements WebSocketSession {
 
     private final String id = UUID.randomUUID().toString();
     private final WebSocket socket;
-    private final Map<String, String> pathVariables;
-    private final Map<String, String> headers;
+    private final HttpPathParamIndex pathVariables;
+    private final HttpHeaderIndex headers;
 
     public HttpServerWebSocketSession(
         WebSocket socket,
-        Map<String, String> pathVariables,
-        Map<String, String> headers
+        HttpPathParamIndex pathVariables,
+        HttpHeaderIndex headers
     ) {
         this.socket        = socket;
         this.pathVariables = pathVariables;
@@ -90,8 +91,8 @@ public class HttpServerWebSocketSession implements WebSocketSession {
     public boolean isOpen() { return socket.isOpen(); }
 
     @Override
-    public Map<String, String> pathVariables() { return pathVariables; }
+    public HttpPathParamIndex pathVariables() { return pathVariables; }
 
     @Override
-    public Map<String, String> headers() { return headers; }
+    public HttpHeaderIndex headers() { return headers; }
 }

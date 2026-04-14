@@ -3,6 +3,7 @@ package net.magnesiumbackend.core.headers;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,6 +30,7 @@ import java.util.Map;
  * @see CookieRequest
  */
 public final class HttpHeaderIndex {
+    private static final HttpHeaderIndex EMPTY_INDEX = new HttpHeaderIndex(new byte[0]);
 
     private final Slice[] headersById;
     private final Map<String, Slice> fallback;
@@ -39,9 +41,47 @@ public final class HttpHeaderIndex {
      * @param raw the raw HTTP header bytes
      */
     public HttpHeaderIndex(byte[] raw) {
+        if (raw == null || raw.length == 0) {
+            this.headersById = new Slice[0];
+            this.fallback = new HashMap<>(0);
+            return;
+        }
         this.headersById = new Slice[HeaderRegistry.COUNT];
         this.fallback = new HashMap<>(8);
         parse(raw);
+    }
+
+    public HttpHeaderIndex(Map<String, List<String>> requestHeaders) {
+        this.headersById = new Slice[HeaderRegistry.COUNT];
+        this.fallback = new HashMap<>(8);
+
+        for (Map.Entry<String, List<String>> entry : requestHeaders.entrySet()) {
+
+            String name = entry.getKey();
+            List<String> values = entry.getValue();
+
+            if (values == null || values.isEmpty()) continue;
+
+            String value = values.getFirst();
+
+            Slice valueSlice = new Slice(
+                value.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                0,
+                value.length()
+            );
+
+            int id = HeaderResolver.resolveString(name);
+
+            if (id >= 0) {
+                headersById[id] = valueSlice;
+            } else {
+                fallback.put(name.toLowerCase(), valueSlice);
+            }
+        }
+    }
+
+    public static HttpHeaderIndex empty() {
+        return EMPTY_INDEX;
     }
 
     private void parse(byte @NotNull [] raw) {
