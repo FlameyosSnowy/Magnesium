@@ -3,12 +3,10 @@ package net.magnesiumbackend.core.annotations.enums;
 /**
  * Specifies how multiple required permissions are evaluated for access control.
  *
- * <p>Used with {@link net.magnesiumbackend.core.annotations.Requires} and
- * {@link net.magnesiumbackend.core.annotations.Secured} annotations to determine
+ * <p>Used with {@link net.magnesiumbackend.core.annotations.Requires} annotation to determine
  * whether a user must possess all listed permissions or just one.</p>
  *
  * @see net.magnesiumbackend.core.annotations.Requires
- * @see net.magnesiumbackend.core.annotations.Secured
  */
 public enum RequiresMode {
     /**

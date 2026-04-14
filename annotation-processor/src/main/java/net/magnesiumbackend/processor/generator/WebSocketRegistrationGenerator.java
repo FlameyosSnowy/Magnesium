@@ -2,11 +2,10 @@ package net.magnesiumbackend.processor.generator;
 
 import com.palantir.javapoet.*;
 import net.magnesiumbackend.core.MagnesiumApplication;
-import net.magnesiumbackend.core.annotations.OnClose;
-import net.magnesiumbackend.core.annotations.OnException;
-import net.magnesiumbackend.core.annotations.OnMessage;
-import net.magnesiumbackend.core.annotations.OnOpen;
-import net.magnesiumbackend.core.annotations.WebSocketMapping;
+import net.magnesiumbackend.core.annotations.OnWebSocketClose;
+import net.magnesiumbackend.core.annotations.OnWebSocketException;
+import net.magnesiumbackend.core.annotations.OnWebSocketMessage;
+import net.magnesiumbackend.core.annotations.OnWebSocketOpen;
 import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
@@ -77,40 +76,6 @@ public class WebSocketRegistrationGenerator {
 
         Map<String, Map<WsLifecycle, ExecutableElement>> grouped = new HashMap<>();
 
-        // Process @WebSocketMapping annotations
-        for (Element element : controllerClass.getEnclosedElements()) {
-            if (element.getKind() != ElementKind.METHOD) continue;
-
-            ExecutableElement method = (ExecutableElement) element;
-            WebSocketMapping annotation = method.getAnnotation(WebSocketMapping.class);
-            if (annotation == null) continue;
-
-            if (!validateWebSocketMethod(method)) continue;
-
-            String path = annotation.path();
-
-            if (path.isBlank()) {
-                error("@WebSocket path must not be blank.", method);
-                continue;
-            }
-            if (path.charAt(0) != '/') {
-                error("@WebSocket path must start with '/'. Got: " + path, method);
-                continue;
-            }
-
-            WsLifecycle lifecycle = resolveLifecycle(method.getParameters());
-
-            Map<WsLifecycle, ExecutableElement> map =
-                grouped.computeIfAbsent(path, k -> new EnumMap<>(WsLifecycle.class));
-
-            if (map.containsKey(lifecycle)) {
-                error("Duplicate WebSocket lifecycle '" + lifecycle + "' for path: " + path, method);
-                continue;
-            }
-
-            map.put(lifecycle, method);
-        }
-
         // Process @OnOpen, @OnMessage, @OnClose, @OnException annotations
         processStandaloneAnnotations(controllerClass, varName, grouped);
 
@@ -162,12 +127,12 @@ public class WebSocketRegistrationGenerator {
 
             ExecutableElement method = (ExecutableElement) element;
 
-            OnOpen onOpen = method.getAnnotation(OnOpen.class);
-            OnMessage onMessage = method.getAnnotation(OnMessage.class);
-            OnClose onClose = method.getAnnotation(OnClose.class);
-            OnException onError = method.getAnnotation(OnException.class);
+            OnWebSocketOpen onWebSocketOpen = method.getAnnotation(OnWebSocketOpen.class);
+            OnWebSocketMessage onWebSocketMessage = method.getAnnotation(OnWebSocketMessage.class);
+            OnWebSocketClose onWebSocketClose = method.getAnnotation(OnWebSocketClose.class);
+            OnWebSocketException onError = method.getAnnotation(OnWebSocketException.class);
 
-            if (onOpen == null && onMessage == null && onClose == null && onError == null) {
+            if (onWebSocketOpen == null && onWebSocketMessage == null && onWebSocketClose == null && onError == null) {
                 continue;
             }
 
@@ -177,15 +142,15 @@ public class WebSocketRegistrationGenerator {
             WsLifecycle lifecycle = null;
             String path = null;
 
-            if (onOpen != null) {
+            if (onWebSocketOpen != null) {
                 lifecycle = WsLifecycle.OPEN;
-                path = onOpen.path().isEmpty() ? "/" : onOpen.path();
-            } else if (onMessage != null) {
+                path = onWebSocketOpen.path().isEmpty() ? "/" : onWebSocketOpen.path();
+            } else if (onWebSocketMessage != null) {
                 lifecycle = WsLifecycle.MESSAGE;
-                path = onMessage.path().isEmpty() ? "/" : onMessage.path();
-            } else if (onClose != null) {
+                path = onWebSocketMessage.path().isEmpty() ? "/" : onWebSocketMessage.path();
+            } else if (onWebSocketClose != null) {
                 lifecycle = WsLifecycle.CLOSE;
-                path = onClose.path().isEmpty() ? "/" : onClose.path();
+                path = onWebSocketClose.path().isEmpty() ? "/" : onWebSocketClose.path();
             } else if (onError != null) {
                 lifecycle = WsLifecycle.ERROR;
                 path = onError.path().isEmpty() ? "/" : onError.path();

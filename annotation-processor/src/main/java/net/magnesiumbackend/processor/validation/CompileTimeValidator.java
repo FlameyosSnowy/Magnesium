@@ -1011,13 +1011,11 @@ public class CompileTimeValidator {
         // Check method-level auth
         if (methodElement != null) {
             if (hasAnnotation(methodElement, Requires.class)) return true;
-            if (hasAnnotation(methodElement, Secured.class)) return true;
             if (hasAnnotation(methodElement, Authenticated.class)) return true;
         }
 
         // Check class-level auth
         if (hasAnnotation(controllerClass, Requires.class)) return true;
-        if (hasAnnotation(controllerClass, Secured.class)) return true;
         if (hasAnnotation(controllerClass, Authenticated.class)) return true;
 
         return false;

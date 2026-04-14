@@ -95,24 +95,21 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(Subscribe.class.getCanonicalName());
         supported.add(RestController.class.getCanonicalName());
         supported.add(ExceptionHandler.class.getCanonicalName());
-        supported.add(Secured.class.getCanonicalName());
         supported.add(Requires.class.getCanonicalName());
-        supported.add(WebSocketMapping.class.getCanonicalName());
         supported.add(Authenticated.class.getCanonicalName());
         supported.add(ApplicationConfiguration.class.getCanonicalName());
         supported.add(Filters.class.getCanonicalName());
         supported.add(Filter.class.getCanonicalName());
         supported.add(VerifySignature.class.getCanonicalName());
         supported.add(Anonymous.class.getCanonicalName());
-        supported.add(Async.class.getCanonicalName());
         supported.add(PathParam.class.getCanonicalName());
         supported.add(QueryParam.class.getCanonicalName());
         supported.add(Lifecycle.class.getCanonicalName());
         supported.add(OnInitialize.class.getCanonicalName());
-        supported.add(OnOpen.class.getCanonicalName());
-        supported.add(OnMessage.class.getCanonicalName());
-        supported.add(OnClose.class.getCanonicalName());
-        supported.add(OnException.class.getCanonicalName());
+        supported.add(OnWebSocketOpen.class.getCanonicalName());
+        supported.add(OnWebSocketMessage.class.getCanonicalName());
+        supported.add(OnWebSocketClose.class.getCanonicalName());
+        supported.add(OnWebSocketException.class.getCanonicalName());
         return supported;
     }
 
@@ -311,16 +308,10 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         validateHttpRouteAnnotation(ConnectMapping.class, method, controllerClass, "CONNECT");
 
         // Check WebSocket annotations
-        validateWebSocketAnnotation(OnOpen.class, method, controllerClass);
-        validateWebSocketAnnotation(OnMessage.class, method, controllerClass);
-        validateWebSocketAnnotation(OnClose.class, method, controllerClass);
-        validateWebSocketAnnotation(OnException.class, method, controllerClass);
-
-        // Check legacy @WebSocketMapping
-        WebSocketMapping webSocketMapping = method.getAnnotation(WebSocketMapping.class);
-        if (webSocketMapping != null) {
-            validator.registerWebSocketPath(webSocketMapping.path(), method);
-        }
+        validateWebSocketAnnotation(OnWebSocketOpen.class, method, controllerClass);
+        validateWebSocketAnnotation(OnWebSocketMessage.class, method, controllerClass);
+        validateWebSocketAnnotation(OnWebSocketClose.class, method, controllerClass);
+        validateWebSocketAnnotation(OnWebSocketException.class, method, controllerClass);
 
         // Validate @Emit event schema
         Emit emit = method.getAnnotation(Emit.class);
@@ -371,12 +362,11 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
 
         boolean subscribe           = method.getAnnotation(Subscribe.class) != null;
         boolean hasExceptionHandler = method.getAnnotation(ExceptionHandler.class) != null;
-        boolean hasWebSocket        = method.getAnnotation(WebSocketMapping.class) != null;
-        boolean hasOnOpen           = method.getAnnotation(OnOpen.class) != null;
-        boolean hasOnMessage        = method.getAnnotation(OnMessage.class) != null;
-        boolean hasOnClose          = method.getAnnotation(OnClose.class) != null;
-        boolean hasOnError          = method.getAnnotation(OnException.class) != null;
-        boolean hasLifecycleMethod  = hasOnOpen || hasOnMessage || hasOnClose || hasOnError;
+        boolean hasOnOpen           = method.getAnnotation(OnWebSocketOpen.class) != null;
+        boolean hasOnMessage        = method.getAnnotation(OnWebSocketMessage.class) != null;
+        boolean hasOnClose          = method.getAnnotation(OnWebSocketClose.class) != null;
+        boolean hasOnError          = method.getAnnotation(OnWebSocketException.class) != null;
+        boolean hasWebSocket        = hasOnOpen || hasOnMessage || hasOnClose || hasOnError;
         boolean hasOnInitialize     = method.getAnnotation(OnInitialize.class) != null;
 
         if (routeCount > 1) {
@@ -391,15 +381,15 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             error("@WebSocket cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
         }
 
-        if (hasLifecycleMethod && (routeCount > 0 || subscribe)) {
-            error("WebSocket lifecycle annotations cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
+        if (hasWebSocket && (routeCount > 0 || subscribe)) {
+            error("WebSocket annotations cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
         }
 
         if (hasOnInitialize && (routeCount > 0 || subscribe || hasExceptionHandler)) {
             error("@OnInitialize cannot be combined with @*Route, @Subscribe/@Emit, or @ExceptionHandler annotations.", method);
         }
 
-        if (hasExceptionHandler && (routeCount > 0 || subscribe || hasWebSocket || hasLifecycleMethod)) {
+        if (hasExceptionHandler && (routeCount > 0 || subscribe || hasWebSocket)) {
             error("@ExceptionHandler cannot be combined with @*Route, @WebSocket, @Subscribe/@Emit, "
                 + "or lifecycle annotations or be in a class not annotated with @ExceptionHandler.", method);
         }

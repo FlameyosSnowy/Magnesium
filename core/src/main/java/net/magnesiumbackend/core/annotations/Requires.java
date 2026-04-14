@@ -49,7 +49,6 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * @see Authenticated
- * @see Secured
  * @see RequiresMode
  * @see Anonymous
  */

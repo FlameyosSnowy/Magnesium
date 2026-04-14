@@ -32,7 +32,6 @@ package net.magnesiumbackend.core.http.websocket;
  *
  * @see WebSocketSession
  * @see WebSocketMessage
- * @see net.magnesiumbackend.core.annotations.WebSocketMapping
  */
 public interface WebSocketHandler {
 

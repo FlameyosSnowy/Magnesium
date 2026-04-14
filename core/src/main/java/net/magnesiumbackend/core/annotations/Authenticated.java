@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
  * mechanism depends on the configured security providers.</p>
  *
  * <p>If authentication fails, a 401 Unauthorized response is returned.
- * Use {@link Secured} or {@link Requires} for additional authorization checks
+ * Use {@link Requires} for additional authorization checks
  * after authentication.</p>
  *
  * <p>Example usage on a method:</p>
@@ -38,7 +38,6 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * @see Anonymous
- * @see Secured
  * @see Requires
  * @see RateLimit
  */

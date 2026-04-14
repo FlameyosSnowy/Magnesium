@@ -1,6 +1,5 @@
 package net.magnesiumbackend.transport.httpserver;
 
-import net.magnesiumbackend.core.annotations.Async;
 import net.magnesiumbackend.core.annotations.GetMapping;
 import net.magnesiumbackend.core.annotations.PathParam;
 import net.magnesiumbackend.core.annotations.RestController;

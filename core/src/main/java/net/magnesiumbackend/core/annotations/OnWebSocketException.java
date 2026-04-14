@@ -9,31 +9,31 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method to handle WebSocket connection close events.
+ * Marks a method to handle WebSocket errors.
  *
- * <p>Methods annotated with @OnClose are invoked when a WebSocket
- * connection is closed. The method should accept the session, status code,
- * and close reason as parameters.</p>
+ * <p>Methods annotated with @OnException are invoked when an error occurs
+ * on a WebSocket connection. The method should accept the session and the
+ * throwable that caused the error.</p>
  *
  * <h3>Usage Example</h3>
  * <pre>{@code
  * @RestController
  * public class ChatController {
- *     @OnClose(path = "/chat/{roomId}")
- *     void onDisconnect(WebSocketSession session, int code, String reason) {
- *         String roomId = session.pathVariables().get("roomId");
- *         // Handle connection close
+ *     @OnException(path = "/chat/{roomId}")
+ *     void onError(WebSocketSession session, Throwable error) {
+ *         // Log error, close connection, etc.
  *     }
  * }
  * }</pre>
  *
- * @see WebSocketHandler#onClose(WebSocketSession, int, String)
- * @see OnOpen
- * @see OnMessage
+ * @see WebSocketHandler#onError(WebSocketSession, Throwable)
+ * @see OnWebSocketOpen
+ * @see OnWebSocketMessage
+ * @see OnWebSocketClose
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
-public @interface OnClose {
+public @interface OnWebSocketException {
     /**
      * The WebSocket path this handler applies to.
      * Defaults to "/" if not specified.

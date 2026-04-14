@@ -28,13 +28,13 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * @see WebSocketHandler#onOpen(WebSocketSession)
- * @see OnMessage
- * @see OnClose
- * @see OnException
+ * @see OnWebSocketMessage
+ * @see OnWebSocketClose
+ * @see OnWebSocketException
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
-public @interface OnOpen {
+public @interface OnWebSocketOpen {
     /**
      * The WebSocket path this handler applies to.
      * Defaults to "/" if not specified.

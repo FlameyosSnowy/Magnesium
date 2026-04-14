@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.annotations;
 
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
+import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 
 import java.lang.annotation.ElementType;
@@ -9,31 +10,31 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method to handle WebSocket errors.
+ * Marks a method to handle incoming WebSocket messages.
  *
- * <p>Methods annotated with @OnException are invoked when an error occurs
- * on a WebSocket connection. The method should accept the session and the
- * throwable that caused the error.</p>
+ * <p>Methods annotated with @OnMessage are invoked when a message is received
+ * from a client. The method must accept {@link WebSocketSession} and
+ * {@link WebSocketMessage} parameters.</p>
  *
  * <h3>Usage Example</h3>
  * <pre>{@code
  * @RestController
  * public class ChatController {
- *     @OnException(path = "/chat/{roomId}")
- *     void onError(WebSocketSession session, Throwable error) {
- *         // Log error, close connection, etc.
+ *     @OnMessage(path = "/chat/{roomId}")
+ *     void onMessage(WebSocketSession session, WebSocketMessage message) {
+ *         String text = message.asText();
+ *         session.sendText("Echo: " + text);
  *     }
  * }
  * }</pre>
  *
- * @see WebSocketHandler#onError(WebSocketSession, Throwable)
- * @see OnOpen
- * @see OnMessage
- * @see OnClose
+ * @see WebSocketHandler#onMessage(WebSocketSession, WebSocketMessage)
+ * @see OnWebSocketOpen
+ * @see OnWebSocketClose
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
-public @interface OnException {
+public @interface OnWebSocketMessage {
     /**
      * The WebSocket path this handler applies to.
      * Defaults to "/" if not specified.

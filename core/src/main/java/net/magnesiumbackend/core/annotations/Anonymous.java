@@ -45,7 +45,6 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * @see Authenticated
- * @see Secured
  * @see RateLimit
  */
 @Retention(RetentionPolicy.SOURCE)

@@ -1,7 +1,6 @@
 package net.magnesiumbackend.core.annotations;
 
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
-import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
 
 import java.lang.annotation.ElementType;
@@ -10,31 +9,31 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method to handle incoming WebSocket messages.
+ * Marks a method to handle WebSocket connection close events.
  *
- * <p>Methods annotated with @OnMessage are invoked when a message is received
- * from a client. The method must accept {@link WebSocketSession} and
- * {@link WebSocketMessage} parameters.</p>
+ * <p>Methods annotated with @OnClose are invoked when a WebSocket
+ * connection is closed. The method should accept the session, status code,
+ * and close reason as parameters.</p>
  *
  * <h3>Usage Example</h3>
  * <pre>{@code
  * @RestController
  * public class ChatController {
- *     @OnMessage(path = "/chat/{roomId}")
- *     void onMessage(WebSocketSession session, WebSocketMessage message) {
- *         String text = message.asText();
- *         session.sendText("Echo: " + text);
+ *     @OnClose(path = "/chat/{roomId}")
+ *     void onDisconnect(WebSocketSession session, int code, String reason) {
+ *         String roomId = session.pathVariables().get("roomId");
+ *         // Handle connection close
  *     }
  * }
  * }</pre>
  *
- * @see WebSocketHandler#onMessage(WebSocketSession, WebSocketMessage)
- * @see OnOpen
- * @see OnClose
+ * @see WebSocketHandler#onClose(WebSocketSession, int, String)
+ * @see OnWebSocketOpen
+ * @see OnWebSocketMessage
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
-public @interface OnMessage {
+public @interface OnWebSocketClose {
     /**
      * The WebSocket path this handler applies to.
      * Defaults to "/" if not specified.

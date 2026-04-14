@@ -15,7 +15,6 @@ import net.magnesiumbackend.core.services.ServiceRegistry;
  * <p>The generated class wires together path patterns, handler factories,
  * and dependency injection to enable type-safe WebSocket endpoints.</p>
  *
- * @see net.magnesiumbackend.core.annotations.WebSocketMapping
  * @see net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry
  * @see net.magnesiumbackend.core.http.websocket.WebSocketHandler
  */
