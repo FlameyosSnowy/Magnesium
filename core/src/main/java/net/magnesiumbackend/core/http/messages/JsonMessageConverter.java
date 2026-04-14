@@ -7,6 +7,8 @@ import java.io.IOException;
 
 public final class JsonMessageConverter implements MessageConverter {
 
+    private static final String CONTENT_TYPE = "application/json";
+
     private final JsonProvider json;
 
     public JsonMessageConverter(JsonProvider json) {
@@ -15,22 +17,30 @@ public final class JsonMessageConverter implements MessageConverter {
 
     @Override
     public boolean canWrite(Class<?> type, String contentType) {
-        return contentType.equals("application/json");
+        return CONTENT_TYPE.equals(contentType);
     }
 
     @Override
     public void write(Object body, HttpResponseAdapter adapter) throws IOException {
-        byte[] bytes = json.toJsonBytes(body);
-        adapter.write(bytes);
+        if (body instanceof byte[] bytes) {
+            adapter.write(bytes);
+            return;
+        }
+
+        adapter.write(json.toJsonBytes(body));
     }
 
     @Override
     public byte[] toBytes(Object body) {
+        if (body instanceof byte[] bytes) {
+            return bytes;
+        }
+
         return json.toJsonBytes(body);
     }
 
     @Override
     public String contentType() {
-        return "application/json";
+        return CONTENT_TYPE;
     }
 }

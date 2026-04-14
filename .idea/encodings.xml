@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/annotation-processor/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/annotation-processor/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/core/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/core/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-devtools/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-devtools/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-dsljson-json-provider/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-dsljson-json-provider/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-fastjson2-json-provider/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-fastjson2-json-provider/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-jackson-json-provider/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-jackson-json-provider/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-log4j2/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-log4j2/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-logback/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-logback/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-no-op/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-logging-no-op/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-httpserver/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-httpserver/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-netty/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-netty/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-tomcat/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-tomcat/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-undertow/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/magnesium-transport-undertow/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../src/main/resources" charset="UTF-8" />
+  </component>
+</project>

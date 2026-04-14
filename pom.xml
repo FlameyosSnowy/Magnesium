@@ -18,6 +18,9 @@
         <module>magnesium-logging-no-op</module>
         <module>magnesium-transport-tomcat</module>
         <module>magnesium-devtools</module>
+        <module>magnesium-dsljson-json-provider</module>
+        <module>magnesium-jackson-json-provider</module>
+        <module>magnesium-fastjson2-json-provider</module>
     </modules>
 
     <properties>

@@ -9,12 +9,12 @@ module core {
     uses net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
     uses net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
     uses net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
+    uses net.magnesiumbackend.core.json.JsonProvider;
 
     requires io.github.flameyossnowy.velocis;
     requires org.jetbrains.annotations;
     requires org.slf4j;
     requires com.nimbusds.jose.jwt;
-    requires dsl.json;
     requires org.snakeyaml.engine.v2;
     requires java.desktop;
     requires org.bouncycastle.pkix;

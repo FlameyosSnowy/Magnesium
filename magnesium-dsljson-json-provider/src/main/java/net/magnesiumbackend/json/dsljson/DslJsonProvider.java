@@ -1,29 +1,35 @@
-package net.magnesiumbackend.core.json;
+package net.magnesiumbackend.json.dsljson;
 
 import com.dslplatform.json.DslJson;
 import com.dslplatform.json.JsonWriter;
 import com.dslplatform.json.runtime.Settings;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
+import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/**
+ * DSL-JSON implementation of {@link JsonProvider}.
+ *
+ * <p>High-performance JSON serialization using the DSL-JSON library.</p>
+ */
 public final class DslJsonProvider implements JsonProvider {
 
     private final DslJson<Object> dslJson;
 
     public DslJsonProvider() {
         this.dslJson = new DslJson<>(Settings.withRuntime()
-            .includeServiceLoader()
-        );
+            .includeServiceLoader());
     }
 
     public DslJsonProvider(DslJson<Object> dslJson) {
         this.dslJson = dslJson;
     }
+
     @Override
     public byte[] toJsonBytes(Object value) {
         try {
@@ -35,7 +41,7 @@ public final class DslJsonProvider implements JsonProvider {
             return result;
 
         } catch (IOException e) {
-            throw new JsonException("DSL-JSON serialization failed", e);
+            throw new RuntimeException("DSL-JSON serialization failed", e);
         }
     }
 
@@ -55,7 +61,7 @@ public final class DslJsonProvider implements JsonProvider {
             return dslJson.deserialize(type, bytes, bytes.length);
 
         } catch (IOException e) {
-            throw new JsonException("DSL-JSON deserialization failed", e);
+            throw new RuntimeException("DSL-JSON deserialization failed", e);
         }
     }
 
@@ -69,19 +75,7 @@ public final class DslJsonProvider implements JsonProvider {
             return dslJson.deserialize(type, stream);
 
         } catch (IOException e) {
-            throw new JsonException("DSL-JSON stream deserialization failed", e);
+            throw new RuntimeException("DSL-JSON stream deserialization failed", e);
         }
-    }
-
-    // ------------------------
-    // RESPONSE OPTIMIZATION
-    // ------------------------
-
-    @Override
-    public ResponseEntity<byte[]> toResponse(Object value) {
-        byte[] bytes = toJsonBytes(value);
-
-        return ResponseEntity
-            .of(200, bytes, Map.of("Content-Type", "application/json"));
     }
 }

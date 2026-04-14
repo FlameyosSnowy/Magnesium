@@ -6,7 +6,7 @@ import net.magnesiumbackend.core.http.response.ResponseEntity;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Strategy interface for JSON serialisation and deserialisation.
+ * Strategy interface for JSON serialization and deserialization.
  *
  * <p>Implement this interface to plug in any JSON library (Jackson, Gson, etc.).
  * A single instance is registered on {@code MagnesiumApplication} at build time
@@ -75,12 +75,19 @@ public interface JsonProvider {
      * @throws JsonException if serialization fails
      */
     default <T> ResponseEntity<byte[]> toResponse(T value) {
-        return switch (value) {
-            case null -> ResponseEntity.of(200);
-            case String val -> ResponseEntity.ok(val.getBytes(StandardCharsets.UTF_8));
-            case byte[] val -> ResponseEntity.ok(val);
-            default -> ResponseEntity.ok(toJsonBytes(value));
-        };
+        if (value == null) {
+            return ResponseEntity.of(200);
+        }
+
+        if (value instanceof byte[] bytes) {
+            return ResponseEntity.ok(bytes);
+        }
+
+        return ResponseEntity.of(
+            200,
+            toJsonBytes(value),
+            java.util.Map.of("Content-Type", "application/json")
+        );
     }
 
     /**
