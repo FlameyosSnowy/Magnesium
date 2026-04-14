@@ -1,5 +1,7 @@
 package net.magnesiumbackend.devtools;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -72,7 +74,7 @@ public class ClasspathWatcher {
     private void registerAll(Path root, WatchService watcher) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+            public @NotNull FileVisitResult preVisitDirectory(@NotNull Path dir, @NotNull BasicFileAttributes attrs) throws IOException {
                 dir.register(watcher, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
                 return FileVisitResult.CONTINUE;
             }

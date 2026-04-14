@@ -24,12 +24,7 @@ import java.util.Optional;
  *     ...
  * }</pre>
  */
-public final class ProfilingRouteRegistry {
-    private final HttpRouteRegistry delegate;
-
-    public ProfilingRouteRegistry(HttpRouteRegistry delegate) {
-        this.delegate = delegate;
-    }
+public record ProfilingRouteRegistry(HttpRouteRegistry delegate) {
 
     public void register(HttpMethod method,
                          RoutePathTemplate template,
@@ -66,9 +61,5 @@ public final class ProfilingRouteRegistry {
 
     public boolean isEmpty() {
         return delegate.isEmpty();
-    }
-
-    public HttpRouteRegistry delegate() {
-        return delegate;
     }
 }
