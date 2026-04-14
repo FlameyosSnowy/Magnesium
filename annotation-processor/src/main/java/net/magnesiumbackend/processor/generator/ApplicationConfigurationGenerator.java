@@ -9,6 +9,7 @@ import net.magnesiumbackend.core.annotations.ConfigKey;
 import net.magnesiumbackend.core.config.ConfigSource;
 import net.magnesiumbackend.core.config.GeneratedConfigClass;
 import net.magnesiumbackend.core.annotations.RequiredValue;
+import net.magnesiumbackend.processor.validation.CompileTimeValidator;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.processing.Filer;
@@ -34,14 +35,21 @@ public final class ApplicationConfigurationGenerator {
     private final Filer filer;
     private final Elements elements;
     private final Messager messager;
+    private final CompileTimeValidator validator;
 
     private final TypeElement stringTypeElement;
 
     public ApplicationConfigurationGenerator(Types types, Filer filer, Elements elements, Messager messager) {
+        this(types, filer, elements, messager, null);
+    }
+
+    public ApplicationConfigurationGenerator(Types types, Filer filer, Elements elements,
+                                                Messager messager, CompileTimeValidator validator) {
         this.types = types;
         this.filer = filer;
         this.elements = elements;
         this.messager = messager;
+        this.validator = validator;
         this.stringTypeElement = elements.getTypeElement("java.lang.String");
     }
 
@@ -113,6 +121,11 @@ public final class ApplicationConfigurationGenerator {
         ConfigKey keyAnnotation = field.getAnnotation(ConfigKey.class);
         if (keyAnnotation != null && keyAnnotation.value() != null && !keyAnnotation.value().isBlank()) {
             key = keyAnnotation.value();
+        }
+
+        // Validate the config key
+        if (validator != null) {
+            validator.validateConfigKey(key, field, fieldType);
         }
 
         boolean required = field.getAnnotation(RequiredValue.class) != null || fieldType.getKind().isPrimitive();

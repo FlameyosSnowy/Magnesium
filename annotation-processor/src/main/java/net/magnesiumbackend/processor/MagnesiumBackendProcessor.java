@@ -6,11 +6,13 @@ import net.magnesiumbackend.processor.event.EventInformation;
 import net.magnesiumbackend.processor.generator.EmitRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.ApplicationConfigurationGenerator;
 import net.magnesiumbackend.processor.generator.ExceptionHandlerRegistrationGenerator;
+import net.magnesiumbackend.processor.generator.LifecycleRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.RouteManifestGenerator;
 import net.magnesiumbackend.processor.generator.RouteRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.SubscribeRegistrationGenerator;
 
 import net.magnesiumbackend.processor.generator.WebSocketRegistrationGenerator;
+import net.magnesiumbackend.processor.validation.CompileTimeValidator;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -22,6 +24,9 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.FileObject;
@@ -42,7 +47,9 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     private SubscribeRegistrationGenerator        subscribeRegistrationGenerator;
     private WebSocketRegistrationGenerator        webSocketRegistrationGenerator;
     private ApplicationConfigurationGenerator     applicationConfigurationGenerator;
+    private LifecycleRegistrationGenerator        lifecycleRegistrationGenerator;
     private RouteManifestGenerator manifestGenerator;
+    private CompileTimeValidator validator;
 
     private final Set<String> routeRegistrations = new HashSet<>(32);
     private final Set<String> emitRegistrations = new HashSet<>(32);
@@ -50,6 +57,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     private final Set<String> exceptionHandlerRegistrations = new HashSet<>(32);
     private final Set<String> webSocketRegistrations = new HashSet<>(32);
     private final Set<String> applicationConfigurationRegistrations = new HashSet<>(32);
+    private final Set<String> lifecycleRegistrations = new HashSet<>(32);
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -65,7 +73,9 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         this.emitRegistrationGenerator            = new EmitRegistrationGenerator(types, filer, elements, messager);
         this.webSocketRegistrationGenerator = new WebSocketRegistrationGenerator(types, filer, elements, messager);
         this.subscribeRegistrationGenerator       = new SubscribeRegistrationGenerator(types, filer, elements, messager);
-        this.applicationConfigurationGenerator    = new ApplicationConfigurationGenerator(types, filer, elements, messager);
+        this.validator                            = new CompileTimeValidator(types, elements, messager);
+        this.applicationConfigurationGenerator    = new ApplicationConfigurationGenerator(types, filer, elements, messager, validator);
+        this.lifecycleRegistrationGenerator       = new LifecycleRegistrationGenerator(types, filer, elements, messager);
         this.manifestGenerator = new RouteManifestGenerator(filer, elements, types, messager);
     }
 
@@ -96,6 +106,13 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(Anonymous.class.getCanonicalName());
         supported.add(Async.class.getCanonicalName());
         supported.add(PathParam.class.getCanonicalName());
+        supported.add(QueryParam.class.getCanonicalName());
+        supported.add(Lifecycle.class.getCanonicalName());
+        supported.add(OnInitialize.class.getCanonicalName());
+        supported.add(OnOpen.class.getCanonicalName());
+        supported.add(OnMessage.class.getCanonicalName());
+        supported.add(OnClose.class.getCanonicalName());
+        supported.add(OnException.class.getCanonicalName());
         return supported;
     }
 
@@ -126,6 +143,20 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
                 "net.magnesiumbackend.core.config.GeneratedConfigClass",
                 applicationConfigurationRegistrations
             );
+            writeServiceFile(
+                "net.magnesiumbackend.core.lifecycle.generated.GeneratedLifecycleClass",
+                lifecycleRegistrations
+            );
+
+            // Generate lifecycle metadata after all classes are processed
+            String lifecycleGenerated = lifecycleRegistrationGenerator.generate();
+            if (lifecycleGenerated != null) {
+                lifecycleRegistrations.add(lifecycleGenerated);
+            }
+
+            // Perform final cross-cutting validations
+            validator.validateConflictingExceptionHandlers();
+            validator.validateFilterChains();
         }
 
         processApplicationConfigurations(
@@ -138,6 +169,10 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
 
         processExceptionHandlers(
             roundEnvironment.getElementsAnnotatedWith(ExceptionHandler.class)
+        );
+
+        processLifecycles(
+            roundEnvironment.getElementsAnnotatedWith(Lifecycle.class)
         );
 
         return true;
@@ -160,6 +195,13 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             if (generatedExceptionHandler != null) {
                 this.exceptionHandlerRegistrations.add(generatedExceptionHandler);
             }
+        }
+    }
+
+    private void processLifecycles(Set<? extends Element> lifecycles) {
+        for (Element lifecycle : lifecycles) {
+            if (!(lifecycle instanceof TypeElement typeElement)) continue;
+            lifecycleRegistrationGenerator.processLifecycle(typeElement);
         }
     }
 
@@ -193,10 +235,130 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
 
             for (Element element : typeElement.getEnclosedElements()) {
                 if (element.getKind() != ElementKind.METHOD) continue;
-                validateNoConflictingAnnotations((ExecutableElement) element);
+                ExecutableElement method = (ExecutableElement) element;
+                validateNoConflictingAnnotations(method);
+                validateRoutesAndWebSockets(typeElement, method);
+                validateSerializationAndExceptions(typeElement, method);
             }
 
             manifestGenerator.collectRoutes(typeElement);
+        }
+    }
+
+    /**
+     * Validates serialization of request/response bodies and exception handling.
+     */
+    private void validateSerializationAndExceptions(TypeElement controllerClass, ExecutableElement method) {
+        // Validate serialization of request body types
+        for (VariableElement param : method.getParameters()) {
+            // Skip request context, headers, etc.
+            if (isRequestContext(param.asType())) continue;
+            if (hasAnnotation(param, PathParam.class)) continue;
+            if (hasAnnotation(param, RequestHeader.class)) continue;
+            if (hasAnnotation(param, QueryParam.class)) continue;
+
+            // Validate the body type for serialization
+            validator.validateSerialization(param.asType(), param);
+        }
+
+        // Validate serialization of return type
+        TypeMirror returnType = method.getReturnType();
+        if (returnType.getKind() != TypeKind.VOID) {
+            // Unwrap ResponseEntity if present
+            TypeMirror actualReturnType = unwrapResponseEntity(returnType);
+            if (actualReturnType != null) {
+                validator.validateSerialization(actualReturnType, method);
+            }
+        }
+
+        // Validate declared exceptions
+        validator.validateMethodExceptions(method, controllerClass);
+    }
+
+    private boolean isRequestContext(TypeMirror type) {
+        return type.toString().contains("RequestContext") ||
+            type.toString().contains("HttpContext");
+    }
+
+    private boolean hasAnnotation(Element element, Class<? extends Annotation> annClass) {
+        return element.getAnnotation(annClass) != null;
+    }
+
+    private TypeMirror unwrapResponseEntity(TypeMirror type) {
+        String name = type.toString();
+        if (name.contains("ResponseEntity") && type instanceof javax.lang.model.type.DeclaredType declared) {
+            List<? extends TypeMirror> args = declared.getTypeArguments();
+            if (!args.isEmpty()) {
+                return args.get(0);
+            }
+        }
+        return type;
+    }
+
+    /**
+     * Performs advanced compile-time validations for routes and WebSocket handlers.
+     */
+    private void validateRoutesAndWebSockets(TypeElement controllerClass, ExecutableElement method) {
+        // Check HTTP route annotations
+        validateHttpRouteAnnotation(GetMapping.class, method, controllerClass, "GET");
+        validateHttpRouteAnnotation(PostMapping.class, method, controllerClass, "POST");
+        validateHttpRouteAnnotation(PutMapping.class, method, controllerClass, "PUT");
+        validateHttpRouteAnnotation(DeleteMapping.class, method, controllerClass, "DELETE");
+        validateHttpRouteAnnotation(PatchMappings.class, method, controllerClass, "PATCH");
+        validateHttpRouteAnnotation(HeadMapping.class, method, controllerClass, "HEAD");
+        validateHttpRouteAnnotation(OptionsMapping.class, method, controllerClass, "OPTIONS");
+        validateHttpRouteAnnotation(TracesMapping.class, method, controllerClass, "TRACES");
+        validateHttpRouteAnnotation(ConnectMapping.class, method, controllerClass, "CONNECT");
+
+        // Check WebSocket annotations
+        validateWebSocketAnnotation(OnOpen.class, method, controllerClass);
+        validateWebSocketAnnotation(OnMessage.class, method, controllerClass);
+        validateWebSocketAnnotation(OnClose.class, method, controllerClass);
+        validateWebSocketAnnotation(OnException.class, method, controllerClass);
+
+        // Check legacy @WebSocketMapping
+        WebSocketMapping webSocketMapping = method.getAnnotation(WebSocketMapping.class);
+        if (webSocketMapping != null) {
+            validator.registerWebSocketPath(webSocketMapping.path(), method);
+        }
+
+        // Validate @Emit event schema
+        Emit emit = method.getAnnotation(Emit.class);
+        if (emit != null) {
+            TypeMirror returnType = method.getReturnType();
+            validator.validateEventSchema(returnType, method);
+        }
+    }
+
+    private <T extends Annotation> void validateHttpRouteAnnotation(Class<T> annotationClass,
+                                                                     ExecutableElement method,
+                                                                     TypeElement controllerClass,
+                                                                     String httpMethod) {
+        T annotation = method.getAnnotation(annotationClass);
+        if (annotation == null) return;
+
+        try {
+            String path = (String) annotationClass.getMethod("path").invoke(annotation);
+            validator.registerRoute(httpMethod, path, method, controllerClass);
+        } catch (Exception e) {
+            // Ignore reflection errors
+        }
+    }
+
+    private <T extends Annotation> void validateWebSocketAnnotation(Class<T> annotationClass,
+                                                                     ExecutableElement method,
+                                                                     TypeElement controllerClass) {
+        T annotation = method.getAnnotation(annotationClass);
+        if (annotation == null) return;
+
+        try {
+            String path = (String) annotationClass.getMethod("path").invoke(annotation);
+            if (path == null || path.isEmpty()) {
+                path = "/";
+            }
+            validator.registerWebSocketPath(path, method);
+        } catch (Exception e) {
+            // Ignore reflection errors
         }
     }
 
@@ -210,6 +372,12 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         boolean subscribe           = method.getAnnotation(Subscribe.class) != null;
         boolean hasExceptionHandler = method.getAnnotation(ExceptionHandler.class) != null;
         boolean hasWebSocket        = method.getAnnotation(WebSocketMapping.class) != null;
+        boolean hasOnOpen           = method.getAnnotation(OnOpen.class) != null;
+        boolean hasOnMessage        = method.getAnnotation(OnMessage.class) != null;
+        boolean hasOnClose          = method.getAnnotation(OnClose.class) != null;
+        boolean hasOnError          = method.getAnnotation(OnException.class) != null;
+        boolean hasLifecycleMethod  = hasOnOpen || hasOnMessage || hasOnClose || hasOnError;
+        boolean hasOnInitialize     = method.getAnnotation(OnInitialize.class) != null;
 
         if (routeCount > 1) {
             error("A method may only carry one @*Route annotation.", method);
@@ -223,9 +391,17 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             error("@WebSocket cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
         }
 
-        if (hasExceptionHandler && (routeCount > 0 || subscribe || hasWebSocket)) {
-            error("@ExceptionHandler cannot be combined with @*Route, @WebSocket, or @Subscribe/@Emit "
-                + "or be in a class not annotated with @ExceptionHandler.", method);
+        if (hasLifecycleMethod && (routeCount > 0 || subscribe)) {
+            error("WebSocket lifecycle annotations cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
+        }
+
+        if (hasOnInitialize && (routeCount > 0 || subscribe || hasExceptionHandler)) {
+            error("@OnInitialize cannot be combined with @*Route, @Subscribe/@Emit, or @ExceptionHandler annotations.", method);
+        }
+
+        if (hasExceptionHandler && (routeCount > 0 || subscribe || hasWebSocket || hasLifecycleMethod)) {
+            error("@ExceptionHandler cannot be combined with @*Route, @WebSocket, @Subscribe/@Emit, "
+                + "or lifecycle annotations or be in a class not annotated with @ExceptionHandler.", method);
         }
     }
 

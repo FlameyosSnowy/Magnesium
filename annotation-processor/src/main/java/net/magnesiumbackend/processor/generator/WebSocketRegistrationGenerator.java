@@ -2,6 +2,10 @@ package net.magnesiumbackend.processor.generator;
 
 import com.palantir.javapoet.*;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.annotations.OnClose;
+import net.magnesiumbackend.core.annotations.OnException;
+import net.magnesiumbackend.core.annotations.OnMessage;
+import net.magnesiumbackend.core.annotations.OnOpen;
 import net.magnesiumbackend.core.annotations.WebSocketMapping;
 import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
@@ -73,6 +77,7 @@ public class WebSocketRegistrationGenerator {
 
         Map<String, Map<WsLifecycle, ExecutableElement>> grouped = new HashMap<>();
 
+        // Process @WebSocketMapping annotations
         for (Element element : controllerClass.getEnclosedElements()) {
             if (element.getKind() != ElementKind.METHOD) continue;
 
@@ -106,6 +111,9 @@ public class WebSocketRegistrationGenerator {
             map.put(lifecycle, method);
         }
 
+        // Process @OnOpen, @OnMessage, @OnClose, @OnException annotations
+        processStandaloneAnnotations(controllerClass, varName, grouped);
+
         if (grouped.isEmpty()) return null;
 
         for (var entry : grouped.entrySet()) {
@@ -136,6 +144,70 @@ public class WebSocketRegistrationGenerator {
         }
 
         return pkg + "." + proxyName;
+    }
+
+    /**
+     * Processes standalone WebSocket annotations (@OnOpen, @OnMessage, @OnClose, @OnException)
+     * that work without @WebSocketMapping.
+     */
+    private void processStandaloneAnnotations(TypeElement controllerClass, String varName,
+                                               Map<String, Map<WsLifecycle, ExecutableElement>> grouped) {
+        String defaultPath = null;
+
+        // Find if there's a path specified at class level (we'll use a convention)
+        // For now, we require methods to have matching path context
+
+        for (Element element : controllerClass.getEnclosedElements()) {
+            if (element.getKind() != ElementKind.METHOD) continue;
+
+            ExecutableElement method = (ExecutableElement) element;
+
+            OnOpen onOpen = method.getAnnotation(OnOpen.class);
+            OnMessage onMessage = method.getAnnotation(OnMessage.class);
+            OnClose onClose = method.getAnnotation(OnClose.class);
+            OnException onError = method.getAnnotation(OnException.class);
+
+            if (onOpen == null && onMessage == null && onClose == null && onError == null) {
+                continue;
+            }
+
+            if (!validateWebSocketMethod(method)) continue;
+
+            // Determine lifecycle type and path
+            WsLifecycle lifecycle = null;
+            String path = null;
+
+            if (onOpen != null) {
+                lifecycle = WsLifecycle.OPEN;
+                path = onOpen.path().isEmpty() ? "/" : onOpen.path();
+            } else if (onMessage != null) {
+                lifecycle = WsLifecycle.MESSAGE;
+                path = onMessage.path().isEmpty() ? "/" : onMessage.path();
+            } else if (onClose != null) {
+                lifecycle = WsLifecycle.CLOSE;
+                path = onClose.path().isEmpty() ? "/" : onClose.path();
+            } else if (onError != null) {
+                lifecycle = WsLifecycle.ERROR;
+                path = onError.path().isEmpty() ? "/" : onError.path();
+            }
+
+            if (lifecycle == null || path == null) continue;
+
+            // Ensure path starts with /
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+
+            Map<WsLifecycle, ExecutableElement> map =
+                grouped.computeIfAbsent(path, k -> new EnumMap<>(WsLifecycle.class));
+
+            if (map.containsKey(lifecycle)) {
+                error("Duplicate WebSocket lifecycle '" + lifecycle + "' for path: " + path, method);
+                continue;
+            }
+
+            map.put(lifecycle, method);
+        }
     }
 
     private WsLifecycle resolveLifecycle(List<? extends VariableElement> params) {

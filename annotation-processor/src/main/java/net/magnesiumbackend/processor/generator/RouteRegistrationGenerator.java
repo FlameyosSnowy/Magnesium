@@ -26,6 +26,7 @@ import net.magnesiumbackend.core.annotations.Anonymous;
 import net.magnesiumbackend.core.annotations.Filter;
 import net.magnesiumbackend.core.annotations.Filters;
 import net.magnesiumbackend.core.annotations.PathParam;
+import net.magnesiumbackend.core.annotations.QueryParam;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import net.magnesiumbackend.core.http.exceptions.BadRequestException;
@@ -71,6 +72,8 @@ public class RouteRegistrationGenerator {
     private final TypeElement httpFilterTypeElement;
     private final TypeElement integerTypeElement;
     private final TypeElement longTypeElement;
+    private final TypeElement booleanTypeElement;
+    private final TypeElement doubleTypeElement;
     private final TypeElement uuidTypeElement;
 
     public RouteRegistrationGenerator(Types types, Filer filer, Elements elements, Messager messager) {
@@ -89,6 +92,8 @@ public class RouteRegistrationGenerator {
         this.httpFilterTypeElement    = elements.getTypeElement("net.magnesiumbackend.core.route.HttpFilter");
         this.integerTypeElement       = elements.getTypeElement("java.lang.Integer");
         this.longTypeElement          = elements.getTypeElement("java.lang.Long");
+        this.booleanTypeElement       = elements.getTypeElement("java.lang.Boolean");
+        this.doubleTypeElement        = elements.getTypeElement("java.lang.Double");
         this.uuidTypeElement          = elements.getTypeElement("java.util.UUID");
     }
 
@@ -671,6 +676,66 @@ public class RouteRegistrationGenerator {
                     } else {
                         // Should have been caught by validation, keep generated code valid
                         b.addStatement("throw new $T($S)", BadRequestException.class, "Unsupported @PathParam type: " + tn);
+                    }
+                }
+
+                argNames.add(argName);
+                continue;
+            }
+
+            // @QueryParam handling
+            QueryParam queryParam = param.getAnnotation(QueryParam.class);
+            if (queryParam != null) {
+                String paramName = queryParam.value();
+                String rawQueryVar = "__magnesium_queryvar_" + paramName;
+                String queryValueVar = "__magnesium_queryval_" + paramName;
+
+                // Get raw value from query parameters
+                b.addStatement("$T $N = request.request().queryParams().get($S)",
+                    ClassName.get("net.magnesiumbackend.core.headers", "Slice"), rawQueryVar, paramName);
+
+                // Handle required vs optional
+                if (queryParam.required()) {
+                    b.beginControlFlow("if ($N == null || $N.isEmpty())", rawQueryVar, rawQueryVar);
+                    b.addStatement("throw new $T($S)",
+                        BadRequestException.class, "Required query parameter '" + paramName + "' is missing");
+                    b.endControlFlow();
+                }
+
+                // Convert to String (handle null for optional params)
+                b.addStatement("String $N = $N != null ? $N.toString() : null", queryValueVar, rawQueryVar, rawQueryVar);
+
+                // Handle default value for optional params
+                String defaultValue = queryParam.defaultValue();
+                if (!queryParam.required() && !defaultValue.isEmpty()) {
+                    b.beginControlFlow("if ($N == null)", queryValueVar);
+                    b.addStatement("$N = $S", queryValueVar, defaultValue);
+                    b.endControlFlow();
+                }
+
+                // Type conversion for common types
+                if (types.isAssignable(t, stringTypeElement.asType())) {
+                    b.addStatement("$T $N = $N", tn, argName, queryValueVar);
+                } else if (types.isAssignable(t, integerTypeElement.asType()) || t.getKind() == TypeKind.INT) {
+                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, queryValueVar, tn, queryValueVar);
+                } else if (types.isAssignable(t, longTypeElement.asType()) || t.getKind() == TypeKind.LONG) {
+                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, queryValueVar, tn, queryValueVar);
+                } else if (types.isAssignable(t, booleanTypeElement.asType()) || t.getKind() == TypeKind.BOOLEAN) {
+                    b.addStatement("$T $N = $N != null ? $T.parseBoolean($N) : false", tn, argName, queryValueVar, tn, queryValueVar);
+                } else if (types.isAssignable(t, doubleTypeElement.asType()) || t.getKind() == TypeKind.DOUBLE) {
+                    b.addStatement("$T $N = $N != null ? $T.parseDouble($N) : 0.0", tn, argName, queryValueVar, tn, queryValueVar);
+                } else if (uuidTypeElement != null && types.isAssignable(t, uuidTypeElement.asType())) {
+                    b.addStatement("$T $N = $N != null ? $T.fromString($N) : null", tn, argName, queryValueVar, tn, queryValueVar);
+                } else {
+                    // Try to find static parse method or String constructor
+                    HeaderParserKind kind = findHeaderParserKind(t);
+                    if (kind == HeaderParserKind.STATIC_PARSE) {
+                        b.addStatement("$T $N = $N != null ? $T.parse($N) : null", tn, argName, queryValueVar, tn, queryValueVar);
+                    } else if (kind == HeaderParserKind.STRING_CTOR) {
+                        b.addStatement("$T $N = $N != null ? new $T($N) : null", tn, argName, queryValueVar, tn, queryValueVar);
+                    } else {
+                        // Should have been caught by validation, keep generated code valid
+                        b.addStatement("throw new $T($S)", BadRequestException.class, "Unsupported @QueryParam type: " + tn);
                     }
                 }
 
