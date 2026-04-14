@@ -140,7 +140,7 @@ public final class HttpPathParamIndex implements Iterable<HttpPathParamIndex.Ent
 
     public record Entry(Slice key, Slice value) {}
 
-    private class EntryIterator implements Iterator<Entry> {
+    private static class EntryIterator implements Iterator<Entry> {
         int i = 0;
 
         private final int size;
@@ -155,7 +155,7 @@ public final class HttpPathParamIndex implements Iterable<HttpPathParamIndex.Ent
 
         @Override
         public boolean hasNext() {
-            int length = keys.length;
+            int length = size;
             while (i < length && keys[i] == null) i++;
             return i < length;
         }

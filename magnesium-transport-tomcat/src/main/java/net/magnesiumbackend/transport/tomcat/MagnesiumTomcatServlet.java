@@ -34,6 +34,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
     private static final Logger LOGGER = LoggerFactory.getLogger(MagnesiumTomcatServlet.class);
     private static final byte[] INTERNAL_SERVER_ERROR = "Internal Server Error".getBytes(StandardCharsets.UTF_8);
     private static final byte[] EMPTY_BYTES = new byte[0];
+    private static final byte[] NOT_FOUND = "Not Found".getBytes(StandardCharsets.UTF_8);
 
     private final HttpRouteRegistry httpRouteRegistry;
     private final List<HttpFilter> globalFilters;
@@ -77,7 +78,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
         if (matchedRoute.isEmpty()) {
             resp.setStatus(404);
             resp.setContentType("application/json");
-            resp.getOutputStream().write("Not Found".getBytes(StandardCharsets.UTF_8));
+            resp.getOutputStream().write(NOT_FOUND);
             return;
         }
 
@@ -121,9 +122,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
                     LOGGER.error("Error processing request", throwable);
                     try {
                         resp.setStatus(500);
-                        resp.getOutputStream().write(
-                            "Internal Server Error".getBytes(StandardCharsets.UTF_8)
-                        );
+                        resp.getOutputStream().write(INTERNAL_SERVER_ERROR);
                     } catch (IOException ignored) {}
                     return;
                 }

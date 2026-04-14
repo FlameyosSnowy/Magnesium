@@ -3,7 +3,6 @@ package net.magnesiumbackend.transport.httpserver;
 import net.magnesiumbackend.core.MagnesiumApplication;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
-import net.magnesiumbackend.core.json.DslJsonProvider;
 import net.magnesiumbackend.core.route.RouteDefinition;
 import net.magnesiumbackend.core.security.SslConfig;
 import org.junit.jupiter.api.AfterEach;
@@ -96,7 +95,7 @@ class HttpServerSslTest {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/health", ctx -> ResponseEntity.ok(Map.of("status", "secure", "https", true)))
             .get("/api/data/{id}", ctx -> {
-                String id = ctx.pathVariables().getRaw("id");
+                String id = ctx.pathVariables().get("id");
                 return ResponseEntity.ok(Map.of(
                     "id", id,
                     "secure", true,
@@ -106,16 +105,13 @@ class HttpServerSslTest {
             .build();
 
         application = MagnesiumApplication.builder()
-            .json(new DslJsonProvider())
             .ssl(sslConfig)
             .http(http -> {
                 // Copy HTTP routes from the pre-built httpServer
-                httpServer.routes().trees().forEach((method, tree) -> {
-                    tree.entries().forEach(entry -> {
-                        RouteDefinition def = entry.handler();
-                        http.route(method, entry.path(), def.handler(), def.filters());
-                    });
-                });
+                httpServer.routes().trees().forEach((method, tree) -> tree.entries().forEach(entry -> {
+                    RouteDefinition def = entry.handler();
+                    http.route(method, entry.path(), def.handler(), def.filters());
+                }));
             })
             .onStart(ctx -> latch.countDown())
             .onExit(ctx -> {})
