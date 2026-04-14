@@ -251,8 +251,9 @@ public record ProfilingJsonProvider(JsonProvider delegate) implements JsonProvid
         }
         // Extract raw class from generic type if possible
         String typeName = type.getTypeName();
-        if (typeName.contains("<")) {
-            typeName = typeName.substring(0, typeName.indexOf('<'));
+        int index = typeName.indexOf('<');
+        if (index > 0) {
+            typeName = typeName.substring(0, index);
         }
         try {
             return Class.forName(typeName);
