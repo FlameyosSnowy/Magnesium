@@ -1,5 +1,6 @@
 package net.magnesiumbackend.core.security;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
@@ -52,27 +53,27 @@ public final class SecurityHeadersFilter implements HttpFilter {
     }
 
     public void applyTo(ResponseEntity<?> response) {
-        Map<String, String> headers = response.headers();
+        HttpHeaderIndex headers = response.headers();
 
         if (config.contentTypeOptions())
-            headers.put("X-Content-Type-Options", "nosniff");
+            headers.set("X-Content-Type-Options", "nosniff");
 
         if (config.frameOptions() != null)
-            headers.put("X-Frame-Options", config.frameOptions());
+            headers.set("X-Frame-Options", config.frameOptions());
 
         if (config.xssProtection())
-            headers.put("X-XSS-Protection", "1; mode=block");
+            headers.set("X-XSS-Protection", "1; mode=block");
 
         if (config.hsts() != null)
-            headers.put("Strict-Transport-Security", config.hsts());
+            headers.set("Strict-Transport-Security", config.hsts());
 
         if (config.contentSecurityPolicy() != null)
-            headers.put("Content-Security-Policy", config.contentSecurityPolicy());
+            headers.set("Content-Security-Policy", config.contentSecurityPolicy());
 
         if (config.referrerPolicy() != null)
-            headers.put("Referrer-Policy", config.referrerPolicy());
+            headers.set("Referrer-Policy", config.referrerPolicy());
 
         if (config.permissionsPolicy() != null)
-            headers.put("Permissions-Policy", config.permissionsPolicy());
+            headers.set("Permissions-Policy", config.permissionsPolicy());
     }
 }

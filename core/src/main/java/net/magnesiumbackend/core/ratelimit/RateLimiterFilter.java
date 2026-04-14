@@ -10,6 +10,8 @@ import net.magnesiumbackend.core.route.RequestContext;
 
 public final class RateLimiterFilter implements HttpFilter {
 
+    private static final @org.jetbrains.annotations.NotNull Slice SLICE_ZERO = Slice.of("0");
+
     @FunctionalInterface
     public interface KeyResolver {
         String resolve(RequestContext ctx);
@@ -125,18 +127,18 @@ public final class RateLimiterFilter implements HttpFilter {
                     "rate_limit_exceeded",
                     "Too many requests. Retry after " + result.resetAfterSeconds() + "s."
                 ))
-                .header("X-RateLimit-Limit",     String.valueOf(result.limit()))
-                .header("X-RateLimit-Remaining", "0")
-                .header("X-RateLimit-Reset",     String.valueOf(result.resetAfterSeconds()))
-                .header("Retry-After",           String.valueOf(result.resetAfterSeconds()));
+                .header("X-RateLimit-Limit",     Slice.of(result.limit()))
+                .header("X-RateLimit-Remaining", SLICE_ZERO)
+                .header("X-RateLimit-Reset",     Slice.of(result.resetAfterSeconds()))
+                .header("Retry-After",           Slice.of(result.resetAfterSeconds()));
         }
 
         ResponseEntity<?> response = chain.next(ctx);
 
         return response.headers(headers -> {
-            headers.put("X-RateLimit-Limit",     String.valueOf(result.limit()));
-            headers.put("X-RateLimit-Remaining", String.valueOf(result.remaining()));
-            headers.put("X-RateLimit-Reset",     String.valueOf(result.resetAfterSeconds()));
+            headers.set("X-RateLimit-Limit",     Slice.of(result.limit()));
+            headers.set("X-RateLimit-Remaining", Slice.of(result.remaining()));
+            headers.set("X-RateLimit-Reset",     Slice.of(result.resetAfterSeconds()));
         });
     }
 }

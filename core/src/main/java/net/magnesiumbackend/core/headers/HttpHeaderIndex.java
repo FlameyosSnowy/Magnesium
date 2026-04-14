@@ -84,6 +84,10 @@ public final class HttpHeaderIndex {
         return EMPTY_INDEX;
     }
 
+    public boolean isEmpty() {
+        return headersById.length == 0 && fallback.isEmpty();
+    }
+
     private void parse(byte @NotNull [] raw) {
 
         int i = 0;
@@ -131,5 +135,91 @@ public final class HttpHeaderIndex {
         int id = HeaderResolver.resolveString(name);
         if (id >= 0) return headersById[id];
         return fallback.get(name.toLowerCase());
+    }
+
+    public Slice getOrDefault(String name, String defaultValue) {
+        Slice value = get(name);
+        return value != null ? value : Slice.of(defaultValue);
+    }
+
+    public Slice getOrDefault(String name, Slice defaultValue) {
+        Slice value = get(name);
+        return value != null ? value : defaultValue;
+    }
+
+    public void set(int headerId, Slice value) {
+        headersById[headerId] = value;
+    }
+
+    public void set(String name, Slice value) {
+        int id = HeaderResolver.resolveString(name);
+
+        if (id >= 0) {
+            headersById[id] = value;
+        } else {
+            fallback.put(name.toLowerCase(), value);
+        }
+    }
+
+    public void set(String name, String value) {
+        set(name, Slice.of(value));
+    }
+
+    public Iterator iterator() {
+        return new Iterator(this);
+    }
+
+    public static final class Iterator {
+
+        private final Slice[] headersById;
+        private final Map<String, Slice> fallback;
+
+        private int index = -1;
+
+        // fallback iteration state
+        private java.util.Iterator<Map.Entry<String, Slice>> fallbackIt;
+        private Map.Entry<String, Slice> currentFallback;
+
+        private Slice currentName;
+        private Slice currentValue;
+
+        private Iterator(HttpHeaderIndex index) {
+            this.headersById = index.headersById;
+            this.fallback = index.fallback;
+        }
+
+        public boolean next() {
+
+            int length = headersById.length;
+            while (++index < length) {
+                Slice v = headersById[index];
+                if (v != null) {
+                    currentName = Slice.of(HeaderRegistry.nameOf(index)); // assumes reverse mapping exists
+                    currentValue = v;
+                    return true;
+                }
+            }
+
+            if (fallbackIt == null) {
+                fallbackIt = fallback.entrySet().iterator();
+            }
+
+            if (fallbackIt.hasNext()) {
+                currentFallback = fallbackIt.next();
+                currentName = Slice.of(currentFallback.getKey());
+                currentValue = currentFallback.getValue();
+                return true;
+            }
+
+            return false;
+        }
+
+        public Slice nameSlice() {
+            return currentName;
+        }
+
+        public Slice valueSlice() {
+            return currentValue;
+        }
     }
 }

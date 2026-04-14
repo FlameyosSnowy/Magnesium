@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.idempotency;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
@@ -49,5 +51,5 @@ public interface IdempotencyStore {
      * @param body       the response body
      * @param headers    the response headers
      */
-    record StoredResponse<T>(int statusCode, T body, Map<String, String> headers) {}
+    record StoredResponse<T>(int statusCode, T body, HttpHeaderIndex headers) {}
 }

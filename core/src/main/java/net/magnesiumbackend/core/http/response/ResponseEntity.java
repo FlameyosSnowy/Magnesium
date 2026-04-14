@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http.response;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.Slice;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -63,38 +65,33 @@ public interface ResponseEntity<T> {
      *
      * @return the headers map (modifiable)
      */
-    Map<String, String> headers();
+    HttpHeaderIndex headers();
 
-    default ResponseEntity<T> headers(Map<String, String> headers) {
-        headers().putAll(headers);
-        return this;
-    }
-
-    default ResponseEntity<T> headers(BiConsumer<String, String> headers) {
-        headers().forEach(headers);
-        return this;
-    }
-
-    default ResponseEntity<T> headers(Consumer<Map<String, String>> headers) {
+    default ResponseEntity<T> headers(Consumer<HttpHeaderIndex> headers) {
         headers.accept(headers());
         return this;
     }
 
     default ResponseEntity<T> header(String name, String value) {
-        headers().put(name, value);
+        headers().set(name, value);
         return this;
     }
 
-    static <T> ResponseEntity<T> of(int statusCode, T body, Map<String, String> headers) {
+    default ResponseEntity<T> header(String name, Slice value) {
+        headers().set(name, value);
+        return this;
+    }
+
+    static <T> ResponseEntity<T> of(int statusCode, T body, HttpHeaderIndex headers) {
         return new DefaultResponseEntity<>(statusCode, body, headers);
     }
 
     static <T> ResponseEntity<T> of(int statusCode, T body) {
-        return new DefaultResponseEntity<>(statusCode, body, Collections.emptyMap());
+        return new DefaultResponseEntity<>(statusCode, body, HttpHeaderIndex.empty());
     }
 
     static <T> ResponseEntity<T> of(int statusCode) {
-        return new DefaultResponseEntity<>(statusCode, null, Collections.emptyMap());
+        return new DefaultResponseEntity<>(statusCode, null, HttpHeaderIndex.empty());
     }
 
     static <T> ResponseEntity<T> ok(T body) {

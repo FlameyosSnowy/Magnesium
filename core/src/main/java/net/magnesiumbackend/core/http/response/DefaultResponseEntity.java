@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.http.response;
 
-import java.util.Map;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 
-record DefaultResponseEntity<T>(int statusCode, T body, Map<String, String> headers) implements ResponseEntity<T> {
+record DefaultResponseEntity<T>(int statusCode, T body, HttpHeaderIndex headers) implements ResponseEntity<T> {
 }

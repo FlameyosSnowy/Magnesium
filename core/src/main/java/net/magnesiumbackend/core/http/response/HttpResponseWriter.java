@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core.http.response;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.Slice;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,6 +36,7 @@ import java.util.Map;
 public final class HttpResponseWriter {
 
     private static final byte[] EMPTY = new byte[0];
+    private static final Slice CONTENT_TYPE = Slice.of("application/json");
 
     private final MessageConverterRegistry converterRegistry;
 
@@ -55,37 +58,36 @@ public final class HttpResponseWriter {
      */
     public void write(ResponseEntity<?> response, HttpResponseAdapter adapter) throws IOException {
         Object body = response.body();
-        String contentType = resolveContentType(response.headers());
+        Slice contentType = resolveContentType(response.headers());
 
         adapter.setStatus(response.statusCode());
 
-        Map<String, String> headers = response.headers();
+        HttpHeaderIndex headers = response.headers();
         if (!headers.isEmpty()) {
-            for (Map.Entry<String, String> e : headers.entrySet()) {
-                adapter.setHeader(e.getKey(), e.getValue());
+            HttpHeaderIndex.Iterator iterator = headers.iterator();
+            while (iterator.next()) {
+                adapter.setHeader(iterator.nameSlice().materialize(), iterator.valueSlice().materialize());
             }
         }
 
-        if (!response.headers().containsKey("Content-Type")) {
-            adapter.setHeader("Content-Type", contentType);
+        if (response.headers().get("Content-Type") != null) {
+            adapter.setHeader("Content-Type", contentType.materialize());
         }
 
         switch (body) {
             case null -> adapter.write(EMPTY);
             case byte[] bytes -> adapter.write(bytes);
             case String str -> adapter.write(str.getBytes(StandardCharsets.UTF_8));
-            default -> converterRegistry.findWriter(body, contentType).write(body, adapter);
+            default -> converterRegistry.findWriter(body, contentType.materialize()).write(body, adapter);
         }
     }
 
-
-
-    private String resolveContentType(@NotNull Map<String, String> headers) {
-        return headers.getOrDefault("Content-Type", "application/json");
+    private Slice resolveContentType(@NotNull HttpHeaderIndex headers) {
+        return headers.getOrDefault("Content-Type", CONTENT_TYPE);
     }
 
     public byte[] toBytes(ResponseEntity<?> responseEntity) {
-        return converterRegistry.findWriter(responseEntity.body(), resolveContentType(responseEntity.headers()))
+        return converterRegistry.findWriter(responseEntity.body(), resolveContentType(responseEntity.headers()).materialize())
             .toBytes(responseEntity.body());
     }
 }

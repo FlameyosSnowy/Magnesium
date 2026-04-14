@@ -52,5 +52,28 @@ public final class HeaderRegistry {
     /** Total number of known header slots. */
     public static final int COUNT = 8;
 
+    private static final String[] NAMES = new String[COUNT];
+
+    static {
+        NAMES[HOST] = "host";
+        NAMES[CONTENT_TYPE] = "content-type";
+        NAMES[CONTENT_LENGTH] = "content-length";
+        NAMES[AUTHORIZATION] = "authorization";
+        NAMES[COOKIE] = "cookie";
+        NAMES[USER_AGENT] = "user-agent";
+        NAMES[ACCEPT] = "accept";
+        NAMES[CONNECTION] = "connection";
+    }
+
     private HeaderRegistry() {}
+
+    /**
+     * @return canonical lowercase header name for index.
+     */
+    public static String nameOf(int index) {
+        if (index < 0 || index >= COUNT) {
+            throw new IndexOutOfBoundsException("Invalid header id: " + index);
+        }
+        return NAMES[index];
+    }
 }

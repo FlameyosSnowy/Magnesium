@@ -49,6 +49,7 @@ public final class IdempotencyFilter implements HttpFilter {
 
     /** Header added to replayed responses. */
     private static final String REPLAYED_HEADER    = "Idempotent-Replayed";
+    private static final Slice TRUE = Slice.of("true");
 
     private final IdempotencyStore store;
     private final Duration ttlHours;
@@ -87,7 +88,7 @@ public final class IdempotencyFilter implements HttpFilter {
         if (cached.isPresent()) {
             IdempotencyStore.StoredResponse<?> stored = cached.get();
             ResponseEntity<?> replayed = ResponseEntity.of(stored.statusCode(), stored.body());
-            replayed.headers().put(REPLAYED_HEADER, "true");
+            replayed.headers().set(REPLAYED_HEADER, TRUE);
             return replayed;
         }
 

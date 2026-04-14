@@ -5,32 +5,20 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.charset.StandardCharsets;
 
-/**
- * Zero-copy byte slice for efficient header and cookie parsing.
- *
- * <p>Slice provides a lightweight view into an underlying byte array without
- * copying data. This is critical for high-performance HTTP parsing where
- * headers and cookies are processed without allocating intermediate strings.</p>
- *
- * <h3>Operations</h3>
- * <ul>
- *   <li>{@link #byteAt(int)} - Access individual bytes</li>
- *   <li>{@link #charAt(int)} - Access as char (for ASCII parsing)</li>
- *   <li>{@link #materialize()} - Convert to String (costly, defer if possible)</li>
- *   <li>{@link #materializeLowercase()} - Convert to lowercase String</li>
- *   <li>{@link #equalsIgnoreCase(String)} - Case-insensitive comparison without allocation</li>
- *   <li>{@link #slice(int, int)} - Create sub-slice without copying</li>
- * </ul>
- *
- * @param src   the underlying byte array
- * @param start the starting offset into the array
- * @param len   the length of this slice
- */
 public record Slice(byte[] src, int start, int len) {
+
+    // ----------------------------
+    // Creation
+    // ----------------------------
+
     @Contract("_ -> new")
     public static @NotNull Slice of(String key) {
         return new Slice(key.getBytes(StandardCharsets.UTF_8), 0, key.length());
     }
+
+    // ----------------------------
+    // Basic access
+    // ----------------------------
 
     public int length() {
         return len;
@@ -44,18 +32,14 @@ public record Slice(byte[] src, int start, int len) {
         return (char) (src[start + i] & 255);
     }
 
-    /** Only materialize when absolutely needed */
     public String materialize() {
         return new String(src, start, len, StandardCharsets.UTF_8);
     }
 
-    /** Materialize as lowercase ASCII string in one allocation */
     public String materializeLowercase() {
-        int n = len;
-        char[] out = new char[n];
+        char[] out = new char[len];
 
-        byte[] src = this.src;
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < len; i++) {
             byte b = src[start + i];
 
             if (b >= 'A' && b <= 'Z') {
@@ -68,16 +52,20 @@ public record Slice(byte[] src, int start, int len) {
         return new String(out);
     }
 
-    public boolean equalsIgnoreCase(String other) {
-        int n = len;
-        if (other.length() != n) return false;
+    // ----------------------------
+    // Comparisons
+    // ----------------------------
 
-        byte[] src = this.src;
-        for (int i = 0; i < n; i++) {
+    public boolean equalsIgnoreCase(String other) {
+        if (other.length() != len) return false;
+
+        for (int i = 0; i < len; i++) {
             byte a = src[start + i];
             char b = other.charAt(i);
 
-            if (toLowerAscii(a) != toLowerAscii((byte) b)) return false;
+            if (toLowerAscii(a) != toLowerAscii((byte) b)) {
+                return false;
+            }
         }
         return true;
     }
@@ -87,14 +75,8 @@ public record Slice(byte[] src, int start, int len) {
     }
 
     public boolean isBlank() {
-        int n = len;
-        if (n == 0) return true;
-
-        byte[] src = this.src;
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < len; i++) {
             byte b = src[start + i];
-
-            // fast ASCII whitespace check
             if (!(b == ' ' || b == '\t' || b == '\n' || b == '\r')) {
                 return false;
             }
@@ -110,11 +92,143 @@ public record Slice(byte[] src, int start, int len) {
         return new Slice(src, start + from, newLen);
     }
 
-    @Contract("_ -> new")
-    public @NotNull Slice slice(int from) {
+    public Slice slice(int from) {
         if (from < 0 || from > len) {
             throw new IndexOutOfBoundsException();
         }
         return new Slice(src, start + from, len - from);
+    }
+
+    public int parseInt() {
+        int i = start;
+        int end = start + len;
+
+        int sign = 1;
+        if (src[i] == '-') {
+            sign = -1;
+            i++;
+        }
+
+        int val = 0;
+        for (; i < end; i++) {
+            val = val * 10 + (src[i] - '0');
+        }
+
+        return val * sign;
+    }
+
+    public long parseLong() {
+        int i = start;
+        int end = start + len;
+
+        long sign = 1;
+        if (src[i] == '-') {
+            sign = -1;
+            i++;
+        }
+
+        long val = 0;
+        for (; i < end; i++) {
+            val = val * 10 + (src[i] - '0');
+        }
+
+        return val * sign;
+    }
+
+    /**
+     * Parses:
+     *  - 12.34
+     *  - -12.34
+     *  - 12
+     */
+    public double parseDouble() {
+        int i = start;
+        int end = start + len;
+
+        double sign = 1;
+        if (src[i] == '-') {
+            sign = -1;
+            i++;
+        }
+
+        long intPart = 0;
+        while (i < end && src[i] != '.' && src[i] != 'e' && src[i] != 'E') {
+            intPart = intPart * 10 + (src[i] - '0');
+            i++;
+        }
+
+        double result = intPart;
+
+        // fractional
+        if (i < end && src[i] == '.') {
+            i++;
+            double div = 1.0;
+
+            while (i < end && src[i] >= '0' && src[i] <= '9') {
+                result = result * 10 + (src[i] - '0');
+                div *= 10;
+                i++;
+            }
+
+            result /= div;
+        }
+
+        // exponent
+        if (i < end && (src[i] == 'e' || src[i] == 'E')) {
+            i++;
+            int expSign = 1;
+            if (src[i] == '-') {
+                expSign = -1;
+                i++;
+            } else if (src[i] == '+') {
+                i++;
+            }
+
+            int exp = 0;
+            while (i < end) {
+                exp = exp * 10 + (src[i] - '0');
+                i++;
+            }
+
+            result *= Math.pow(10, exp * expSign);
+        }
+
+        return result * sign;
+    }
+
+    /**
+     * Fixed-point parsing (e.g. "123.45" with scale 2 → 12345)
+     */
+    public long parseFixedPoint(int scale) {
+        long val = 0;
+        int seen = 0;
+
+        for (int i = start; i < start + len; i++) {
+            byte b = src[i];
+
+            if (b == '.') continue;
+
+            val = val * 10 + (b - '0');
+            seen++;
+        }
+
+        while (seen < scale) {
+            val *= 10;
+            seen++;
+        }
+
+        return val;
+    }
+
+    public static Slice of(int value) {
+        return of(String.valueOf(value));
+    }
+
+    public static Slice of(long value) {
+        return of(String.valueOf(value));
+    }
+
+    public static Slice of(double value) {
+        return of(String.valueOf(value));
     }
 }
