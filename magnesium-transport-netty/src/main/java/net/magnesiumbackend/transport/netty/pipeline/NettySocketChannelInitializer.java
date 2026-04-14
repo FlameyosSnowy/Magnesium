@@ -58,9 +58,6 @@ public class NettySocketChannelInitializer extends ChannelInitializer<SocketChan
             application.httpServer().globalFilters(),
             application.exceptionHandlerRegistry(),
             application.messageConverterRegistry(),
-            application.httpServer().webSocketRouteRegistry(),
-            application.httpServer().webSocketSessionManager(),
-            sslConfig,
             application.securityHeadersFilter(),
             BackpressureExecutorResolver.resolve(application),
             application.defaultTimeout()

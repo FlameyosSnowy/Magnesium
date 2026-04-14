@@ -41,7 +41,7 @@ public class MagnesiumHttpServer {
         this.httpRouteRegistry = builder.routes;
         this.globalFilters = builder.globalFilters;
         this.websocketRoutes = builder.websocketRoutes;
-        this.webSocketSessionManager = WebSocketSessionManagerLoader.load().orElse(null);
+        this.webSocketSessionManager = builder.webSocketSessionManager != null ? builder.webSocketSessionManager : WebSocketSessionManagerLoader.load().orElse(null);
     }
 
     public HttpRouteRegistry routes() {
@@ -69,10 +69,16 @@ public class MagnesiumHttpServer {
 
         private HttpRouteRegistry routes = new HttpRouteRegistry();
 
-        private List<HttpFilter> globalFilters = new ArrayList<>();
+        private List<HttpFilter> globalFilters = new ArrayList<>(10);
         private WebSocketRouteRegistry websocketRoutes = new WebSocketRouteRegistry();
+        private WebSocketSessionManager webSocketSessionManager;
 
         private Builder() {}
+
+        public Builder webSocketSessionManager(WebSocketSessionManager webSocketSessionManager) {
+            this.webSocketSessionManager = webSocketSessionManager;
+            return this;
+        }
 
         /**
          * Registers a route.

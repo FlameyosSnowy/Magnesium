@@ -9,7 +9,9 @@ import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.RequestSecurityRegistry;
 import net.magnesiumbackend.core.http.RequestSecurityRegistryBuilder;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
+import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 import net.magnesiumbackend.core.json.JsonProvider;
+import net.magnesiumbackend.core.json.JsonProviderLoader;
 import net.magnesiumbackend.core.meta.GeneratedExceptionHandlers;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistrar;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
@@ -86,7 +88,7 @@ public final class MagnesiumApplication {
         this.configurationManager = builder.configurationManager;
 
         this.executor = builder.executor;
-        this.jsonProvider = builder.jsonProvider;
+        this.jsonProvider = builder.jsonProvider != null ? builder.jsonProvider : JsonProviderLoader.load().orElse(null);
         this.httpServer = builder.httpServer;
 
         this.exceptionHandlerRegistry = builder.exceptionHandlerRegistry;
@@ -100,7 +102,7 @@ public final class MagnesiumApplication {
         this.onStart = builder.onStart != null ? builder.onStart : _ -> {};
         this.onExit  = builder.onExit  != null ? builder.onExit  : _ -> {};
 
-        this.transport = TransportLoader.load().orElseGet(() -> {
+        this.transport = builder.transport != null ? builder.transport : TransportLoader.load().orElseGet(() -> {
             if (httpServer.isConfigured()) {
                 throw new IllegalStateException("No TransportProvider found on classpath but HttpServer is configured. Add a dependency like magnesium-transport-netty.");
             }
@@ -191,6 +193,7 @@ public final class MagnesiumApplication {
         private MessageConverterRegistry messageConverterRegistry;
         private Executor executor;
         private JsonProvider jsonProvider;
+        private MagnesiumTransport transport;
         private MagnesiumHttpServer httpServer;
         private final Map<Class<?>, Function<ServiceContext, ?>> serviceFactories = new HashMap<>(16);
         private final ExceptionHandlerRegistry exceptionHandlerRegistry           = new ExceptionHandlerRegistry();
@@ -208,6 +211,16 @@ public final class MagnesiumApplication {
         /** Sets the executor used for route handling and event listeners. */
         public Builder execution(Executor executor) {
             this.executor = executor;
+            return this;
+        }
+
+        public Builder jsonProvider(JsonProvider jsonProvider) {
+            this.jsonProvider = jsonProvider;
+            return this;
+        }
+
+        public Builder transport(MagnesiumTransport transport) {
+            this.transport = transport;
             return this;
         }
 

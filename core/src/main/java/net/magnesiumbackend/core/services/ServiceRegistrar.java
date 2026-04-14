@@ -44,7 +44,7 @@ import java.util.function.Function;
 public final class ServiceRegistrar {
     private final Map<Class<?>, Function<ServiceContext, ?>> factories;
 
-    ServiceRegistrar(Map<Class<?>, Function<ServiceContext, ?>> factories) {
+    public ServiceRegistrar(Map<Class<?>, Function<ServiceContext, ?>> factories) {
         this.factories = factories;
     }
 
