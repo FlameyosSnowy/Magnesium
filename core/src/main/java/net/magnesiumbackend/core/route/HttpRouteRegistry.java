@@ -49,6 +49,13 @@ public class HttpRouteRegistry {
         return tree.match(path.getBytes(StandardCharsets.UTF_8));
     }
 
+    public Optional<RouteTree.RouteMatch<RouteDefinition>> find(HttpMethod method, Slice path) {
+        RouteTree<RouteDefinition> tree = trees.get(method);
+        if (tree == null) return Optional.empty();
+
+        return tree.match(path.src());
+    }
+
     public Optional<RouteTree.RouteMatch<RouteDefinition>> find(HttpMethod method, byte[] path) {
         RouteTree<RouteDefinition> tree = trees.get(method);
         if (tree == null) return Optional.empty();

@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.netty.handler;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
@@ -87,7 +88,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
         RouteDefinition def = matched.handler();
 
         ByteBuf content = req.content();
-        byte[] body = content.array();
+        byte[] body = ByteBufUtil.getBytes(content);
         HttpQueryParamIndex queryParams = HttpUtils.parseQueryString(body);
 
         HttpHeaderIndex headers = NettyHeaderAdapter.from(req.headers());

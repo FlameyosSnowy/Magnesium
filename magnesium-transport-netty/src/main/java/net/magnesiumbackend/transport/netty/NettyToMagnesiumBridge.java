@@ -1,5 +1,6 @@
 package net.magnesiumbackend.transport.netty;
 
+import io.netty.channel.ChannelOption;
 import io.netty.handler.codec.http.HttpVersion;
 import net.magnesiumbackend.core.http.response.HttpMethod;
 import org.jetbrains.annotations.Contract;
@@ -38,6 +39,14 @@ public final class NettyToMagnesiumBridge {
         if (method == io.netty.handler.codec.http.HttpMethod.TRACE)   return HttpMethod.TRACE;
         if (method == io.netty.handler.codec.http.HttpMethod.CONNECT) return HttpMethod.CONNECT;
         return HttpMethod.OPTIONS;
+    }
+
+    @Contract(pure = true)
+    public static HttpMethod asMagnesiumMethod(CharSequence method) {
+        Objects.requireNonNull(method, "Method string must not be null.");
+        return asMagnesiumMethod(
+            io.netty.handler.codec.http.HttpMethod.valueOf(method.toString().toUpperCase())
+        );
     }
 
     /**

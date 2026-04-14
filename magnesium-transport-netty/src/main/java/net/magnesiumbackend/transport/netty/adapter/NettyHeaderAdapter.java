@@ -15,9 +15,9 @@ public final class NettyHeaderAdapter {
         ByteBufBuilder buf = new ByteBufBuilder(headers.size() * 32);
 
         for (Map.Entry<String, String> e : headers) {
-            buf.append(e.getKey());
+            append(buf, e.getKey());
             buf.append((byte) ':');
-            buf.append(e.getValue());
+            append(buf, e.getValue());
             buf.append((byte) '\r');
             buf.append((byte) '\n');
         }
@@ -30,13 +30,31 @@ public final class NettyHeaderAdapter {
         ByteBufBuilder buf = new ByteBufBuilder(headers.size() * 32);
 
         for (Map.Entry<CharSequence, CharSequence> e : headers) {
-            buf.append(e.getKey().toString());
+            append(buf, e.getKey());
             buf.append((byte) ':');
-            buf.append(e.getValue().toString());
+            append(buf, e.getValue());
             buf.append((byte) '\r');
             buf.append((byte) '\n');
         }
 
         return new HttpHeaderIndex(buf.build());
+    }
+
+    private static void append(ByteBufBuilder buf, CharSequence cs) {
+
+        if (cs instanceof io.netty.util.AsciiString ascii) {
+            buf.append(ascii.array(), ascii.arrayOffset(), ascii.length());
+            return;
+        }
+
+        if (cs instanceof String s) {
+            buf.appendAscii(s);
+            return;
+        }
+
+        int len = cs.length();
+        for (int i = 0; i < len; i++) {
+            buf.append((byte) cs.charAt(i));
+        }
     }
 }

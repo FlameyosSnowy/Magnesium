@@ -1,29 +1,27 @@
 package net.magnesiumbackend.transport.netty.handler;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.handler.codec.http2.*;
 import net.magnesiumbackend.core.backpressure.QueueRejectedError;
 import net.magnesiumbackend.core.cancellation.SimpleCancellationToken;
 import net.magnesiumbackend.core.exceptions.ExceptionHandlerRegistry;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
 import net.magnesiumbackend.core.headers.Slice;
-import net.magnesiumbackend.core.http.DefaultRequest;
-import net.magnesiumbackend.core.http.Request;
+import net.magnesiumbackend.core.http.*;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.response.*;
 import net.magnesiumbackend.core.route.*;
 import net.magnesiumbackend.core.security.SecurityHeadersFilter;
 import net.magnesiumbackend.transport.netty.adapter.NettyHeaderAdapter;
+import net.magnesiumbackend.transport.netty.utils.NettySlices;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -33,173 +31,201 @@ import static net.magnesiumbackend.transport.netty.NettyToMagnesiumBridge.*;
 public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamFrame> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Http2ServerHandler.class);
+    private static final byte[] EMPTY = new byte[0];
 
-    private final HttpRouteRegistry httpRouteRegistry;
-    private final List<HttpFilter> globalFilters;
-    private final ExceptionHandlerRegistry exceptionHandlerRegistry;
-    private final MessageConverterRegistry messageConverterRegistry;
-    @Nullable private final SecurityHeadersFilter securityHeadersFilter;
-    @Nullable private final Executor requestExecutor;
+    private final HttpRouteRegistry routes;
+    private final List<HttpFilter> filters;
+    private final ExceptionHandlerRegistry exceptions;
+    private final MessageConverterRegistry converters;
+    @Nullable private final SecurityHeadersFilter security;
+    @Nullable private final Executor executor;
     private final Duration timeout;
 
     private Http2HeadersFrame headersFrame;
-    private final StringBuilder bodyBuffer = new StringBuilder();
+
+    // IMPORTANT: keep as ByteBuf, not builder
+    private ByteBuf body;
 
     public Http2ServerHandler(
-        HttpRouteRegistry httpRouteRegistry,
-        List<HttpFilter> globalFilters,
-        ExceptionHandlerRegistry exceptionHandlerRegistry,
-        MessageConverterRegistry messageConverterRegistry,
-        @Nullable SecurityHeadersFilter securityHeadersFilter,
-        @Nullable Executor requestExecutor,
+        HttpRouteRegistry routes,
+        List<HttpFilter> filters,
+        ExceptionHandlerRegistry exceptions,
+        MessageConverterRegistry converters,
+        @Nullable SecurityHeadersFilter security,
+        @Nullable Executor executor,
         Duration timeout
     ) {
-        this.httpRouteRegistry = httpRouteRegistry;
-        this.globalFilters = globalFilters;
-        this.exceptionHandlerRegistry = exceptionHandlerRegistry;
-        this.messageConverterRegistry = messageConverterRegistry;
-        this.securityHeadersFilter = securityHeadersFilter;
-        this.requestExecutor = requestExecutor;
+        this.routes = routes;
+        this.filters = filters;
+        this.exceptions = exceptions;
+        this.converters = converters;
+        this.security = security;
+        this.executor = executor;
         this.timeout = timeout;
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Http2StreamFrame frame) {
-        if (frame instanceof Http2HeadersFrame headers) {
-            headersFrame = headers;
-            if (headers.isEndStream()) {
-                handle(ctx, headers, "");
+
+        if (frame instanceof Http2HeadersFrame hf) {
+            headersFrame = hf;
+
+            if (hf.isEndStream()) {
+                handle(ctx, hf, EMPTY);
             }
             return;
         }
 
-        if (frame instanceof Http2DataFrame data) {
-            bodyBuffer.append(data.content().toString(StandardCharsets.UTF_8));
-            data.release();
+        if (frame instanceof Http2DataFrame df) {
 
-            if (data.isEndStream() && headersFrame != null) {
-                handle(ctx, headersFrame, bodyBuffer.toString());
-                bodyBuffer.setLength(0);
+            ByteBuf content = df.content();
+            if (body == null) {
+                body = ctx.alloc().buffer(content.readableBytes());
+            }
+            body.writeBytes(content);
+
+            if (df.isEndStream()) {
+                byte[] bytes = new byte[body.readableBytes()];
+                body.readBytes(bytes);
+                body.release();
+                body = null;
+
+                handle(ctx, headersFrame, bytes);
                 headersFrame = null;
             }
+
+            df.release();
         }
     }
 
-    private void handle(ChannelHandlerContext ctx, Http2HeadersFrame headersFrame, String body) {
-        Http2Headers h2Headers = headersFrame.headers();
+    private void handle(ChannelHandlerContext ctx, Http2HeadersFrame frame, byte[] body) {
 
-        String rawPath = h2Headers.path().toString();
-        int qIndex = rawPath.indexOf('?');
+        Http2Headers h = frame.headers();
 
-        String path = qIndex > 0 ? rawPath.substring(0, qIndex) : rawPath;
-        String query = qIndex > 0 ? rawPath.substring(qIndex + 1) : "";
+        Slice pathSlice = NettySlices.of(h.path());
 
-        HttpMethod method = asMagnesiumMethodFromString(h2Headers.method().toString());
+        int qIndex = indexOf(pathSlice, (byte) '?');
+        Slice path = qIndex >= 0
+            ? new Slice(pathSlice.src(), pathSlice.start(), qIndex)
+            : pathSlice;
+
+        HttpMethod method = asMagnesiumMethod(h.method());
 
         Optional<RouteTree.RouteMatch<RouteDefinition>> match =
-            httpRouteRegistry.find(method, path);
+            routes.find(method, path);
 
         if (match.isEmpty()) {
             sendError(ctx, 404, "Not Found");
             return;
         }
 
-        var matched = match.get();
-        RouteDefinition def = matched.handler();
+        RouteDefinition def = match.get().handler();
 
-        HttpHeaderIndex headers = NettyHeaderAdapter.from(h2Headers);
+        HttpHeaderIndex headers = NettyHeaderAdapter.from(h);
+
+        HttpQueryParamIndex query = HttpUtils.parseQueryString(pathSlice.src());
 
         Request request = new DefaultRequest(
             def.path(),
             body,
             HttpVersion.HTTP_2_0,
             method,
-            HttpUtils.parseQueryString(query),
-            matched.pathVariables(),
+            query,
+            match.get().pathVariables(),
             def,
             headers
         );
 
-        RequestContext ctxObj = new RequestContext(request);
+        RequestContext context = new RequestContext(request);
 
         SimpleCancellationToken token = new SimpleCancellationToken();
         ctx.channel().closeFuture().addListener(f -> token.cancel());
-        ctxObj.setCancellationToken(token);
+        context.setCancellationToken(token);
 
         try {
-            def.executeAsync(ctxObj, globalFilters, exceptionHandlerRegistry, requestExecutor)
+            def.executeAsync(context, filters, exceptions, executor)
                 .orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                 .whenComplete((res, err) -> {
+
                     token.cancel();
 
                     if (err != null) {
                         if (err instanceof java.util.concurrent.TimeoutException) {
-                            sendError(ctx, 408, "Request Timeout");
+                            sendError(ctx, 408, "Timeout");
                         } else {
-                            LOGGER.error("HTTP/2 error", err);
-                            sendError(ctx, 500, "Internal Server Error");
+                            LOGGER.error("HTTP/2 failure", err);
+                            sendError(ctx, 500, "Error");
                         }
                         return;
                     }
 
-                    if (securityHeadersFilter != null) {
-                        securityHeadersFilter.applyTo(res);
+                    if (security != null) {
+                        security.applyTo(res);
                     }
 
                     sendResponse(ctx, res, request);
                 });
 
         } catch (QueueRejectedError rejected) {
-            sendError(ctx, 503, "Server Overloaded");
+            sendError(ctx, 503, "Overloaded");
         }
     }
 
-    private void sendResponse(ChannelHandlerContext ctx, ResponseEntity<?> entity, Request request) {
+    private int indexOf(Slice s, byte b) {
+        byte[] data = s.src();
+        int start = s.start();
+        int end = start + s.length();
+
+        for (int i = start; i < end; i++) {
+            if (data[i] == b) return i - start;
+        }
+        return -1;
+    }
+
+    private void sendError(ChannelHandlerContext ctx, int status, String msg) {
+
+        byte[] body = msg.getBytes();
+
+        Http2Headers headers = new DefaultHttp2Headers()
+            .status(String.valueOf(status))
+            .setInt("content-length", body.length);
+
+        ctx.write(new DefaultHttp2HeadersFrame(headers, false));
+
+        ByteBuf buf = ctx.alloc().buffer(body.length);
+        buf.writeBytes(body);
+
+        ctx.writeAndFlush(new DefaultHttp2DataFrame(buf, true));
+    }
+
+    private void sendResponse(ChannelHandlerContext ctx, ResponseEntity<?> entity, Request req) {
+
         try {
             Http2Headers headers = new DefaultHttp2Headers()
                 .status(String.valueOf(entity.statusCode()));
 
-            Slice correlation = request.header("X-Correlation-Id");
-            if (correlation != null && correlation.len() > 0) {
-                headers.set("x-correlation-id", correlation.materialize());
+            Slice corr = req.header("X-Correlation-Id");
+            if (corr != null && corr.len() > 0) {
+                headers.set("x-correlation-id", corr.materialize());
             }
 
-            for (Map.Entry<String, String> e : entity.headers().entrySet()) {
-                headers.set(e.getKey().toLowerCase(), e.getValue());
+            for (var e : entity.headers().entrySet()) {
+                headers.set(e.getKey(), e.getValue());
             }
 
-            HttpResponseWriter writer = new HttpResponseWriter(messageConverterRegistry);
-            byte[] body = writer.toBytes(entity);
-
+            byte[] body = new HttpResponseWriter(converters).toBytes(entity);
             headers.setInt("content-length", body.length);
 
             ctx.write(new DefaultHttp2HeadersFrame(headers, false));
 
-            ByteBuf buf = ctx.alloc().buffer(body.length).writeBytes(body);
+            ByteBuf buf = ctx.alloc().buffer(body.length);
+            buf.writeBytes(body);
+
             ctx.writeAndFlush(new DefaultHttp2DataFrame(buf, true));
 
         } catch (Exception e) {
-            LOGGER.error("HTTP/2 write failed", e);
-            sendError(ctx, 500, "Internal Server Error");
+            LOGGER.error("response failure", e);
+            sendError(ctx, 500, "Error");
         }
-    }
-
-    private void sendError(ChannelHandlerContext ctx, int status, String msg) {
-        byte[] body = msg.getBytes(StandardCharsets.UTF_8);
-
-        Http2Headers headers = new DefaultHttp2Headers()
-            .status(String.valueOf(status))
-            .setInt("content-length", body.length)
-            .set("content-type", "text/plain; charset=UTF-8");
-
-        ctx.write(new DefaultHttp2HeadersFrame(headers, false));
-        ByteBuf buf = ctx.alloc().buffer(body.length).writeBytes(body);
-        ctx.writeAndFlush(new DefaultHttp2DataFrame(buf, true));
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOGGER.error("HTTP/2 pipeline error", cause);
-        ctx.close();
     }
 }
