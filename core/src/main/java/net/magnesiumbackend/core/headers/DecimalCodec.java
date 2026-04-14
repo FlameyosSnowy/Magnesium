@@ -103,10 +103,6 @@ public final class DecimalCodec {
         return v;
     }
 
-    // =========================
-    // FORMAT (fixed-point -> bytes)
-    // =========================
-
     public static byte[] formatFixed(long value, int scale) {
 
         boolean neg = value < 0;

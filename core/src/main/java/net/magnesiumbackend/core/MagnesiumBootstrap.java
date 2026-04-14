@@ -6,6 +6,7 @@ import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationC
 import net.magnesiumbackend.core.annotations.service.GeneratedSubscriberClass;
 import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
 
@@ -28,38 +29,34 @@ public record MagnesiumBootstrap(
     }
 
     private static <T> List<T> loadAll(Class<T> type) {
-        return ServiceLoader.load(type)
-            .stream()
-            .map(ServiceLoader.Provider::get)
-            .toList();
+        List<T> providers = new ArrayList<>(1);
+        for (T loaded : ServiceLoader.load(type)) {
+            providers.add(loaded);
+        }
+        return providers;
     }
 
     public void apply(MagnesiumApplication app) {
         var services = app.serviceRegistry();
         var eventBus = app.eventBus();
 
-        // Subscribers
         for (var s : subscribers) {
             s.register(app, services, eventBus.subscribeRegistry());
         }
 
-        // Emit proxies
         for (var e : emitProxies) {
             Object proxy = e.create(app, services, eventBus.emitRegistry());
             services.replaceInstance(e.serviceType(), proxy);
         }
 
-        // Exception handlers
         for (var ex : exceptionHandlers) {
             ex.register(app, services);
         }
 
-        // Routes
         for (var r : routes) {
             r.register(app, services, app.httpServer().routes());
         }
 
-        // WebSockets
         for (var ws : webSockets) {
             ws.register(app, services, app.httpServer().webSocketRouteRegistry());
         }

@@ -1,6 +1,8 @@
 package net.magnesiumbackend.devtools;
 
 import net.magnesiumbackend.core.reload.ReloadListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -9,6 +11,8 @@ import java.util.List;
 import java.util.Set;
 
 public class HotReloadEngine {
+    private static final Logger logger = LoggerFactory.getLogger(HotReloadEngine.class);
+
     private final ClasspathWatcher watcher;
     private final IncrementalCompiler compiler;
     private final Path classesDir;
@@ -39,7 +43,7 @@ public class HotReloadEngine {
     private void onChanged(Set<Path> changed) {
         IncrementalCompiler.CompileResult result = compiler.compile(changed);
         if (!result.success()) {
-            result.errors().forEach(System.err::println);
+            result.errors().forEach(logger::error);
             return;
         }
 
@@ -48,13 +52,13 @@ public class HotReloadEngine {
             currentLoader = newLoader();
             listener.onReload(currentLoader);
         } catch (Exception e) {
-            System.err.println("[Magnesium] Reload failed: " + e.getMessage());
+            logger.error("[Magnesium] Reload failed: {}", e.getMessage());
             currentLoader = oldLoader; // roll back
             return;
         }
 
         oldLoader.dispose(); // eligible for GC
-        System.out.println("[Magnesium] Reloaded " + changed.size() + " class(es)");
+        logger.info("[Magnesium] Reloaded {} class(es)", changed.size());
     }
 
     private ReloadClassLoader newLoader() throws MalformedURLException {

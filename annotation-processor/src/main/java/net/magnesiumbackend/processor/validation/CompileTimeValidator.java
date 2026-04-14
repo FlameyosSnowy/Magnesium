@@ -35,9 +35,8 @@ public class CompileTimeValidator {
     private final Elements elements;
     private final Messager messager;
 
-    // Route tracking for cross-method validation
     private final Map<String, Set<RouteKey>> routesByMethod = new HashMap<>();
-    private final Map<String, String> pathVariableNames = new HashMap<>(); // path -> canonical var name
+    private final Map<String, String> pathVariableNames = new HashMap<>();
     private final Set<String> webSocketPaths = new HashSet<>();
     private final Map<String, Set<String>> configKeysByClass = new HashMap<>();
 
@@ -56,10 +55,6 @@ public class CompileTimeValidator {
         this.elements = elements;
         this.messager = messager;
     }
-
-    // ============================================================================
-    // Route Validation
-    // ============================================================================
 
     /**
      * Registers an HTTP route for validation and performs immediate checks.
@@ -88,7 +83,6 @@ public class CompileTimeValidator {
     public void registerWebSocketPath(String path, ExecutableElement methodElement) {
         String normalized = normalizePath(path);
 
-        // Check for WebSocket/HTTP collision
         for (Map.Entry<String, Set<RouteKey>> entry : routesByMethod.entrySet()) {
             for (RouteKey route : entry.getValue()) {
                 if (pathsCollide(normalized, route.path())) {
@@ -146,7 +140,6 @@ public class CompileTimeValidator {
             boolean bIsParam = segB.startsWith("{");
 
             if (!aIsParam && !bIsParam && !segA.equals(segB)) {
-                // Different literals - neither shadows the other
                 return false;
             }
 
@@ -165,7 +158,6 @@ public class CompileTimeValidator {
             String varName = matcher.group(1);
             String pathPrefix = extractPrefix(path, matcher.start());
 
-            // Check if we've seen this pattern before with a different name
             String existingVar = pathVariableNames.get(pathPrefix);
             if (existingVar != null && !existingVar.equals(varName)) {
                 warning("Inconsistent path variable naming: '" + varName + "' vs '"
@@ -175,7 +167,6 @@ public class CompileTimeValidator {
             }
         }
 
-        // Validate that @PathParam annotations match the path variables
         validatePathParamsMatch(method, path, element);
     }
 
@@ -195,7 +186,7 @@ public class CompileTimeValidator {
             }
         }
 
-        // Check for unused path variables (warning)
+
         for (String pathVar : pathVars) {
             boolean used = false;
             for (VariableElement param : element.getParameters()) {
@@ -215,7 +206,6 @@ public class CompileTimeValidator {
             }
         }
 
-        // Validate @QueryParam parameters
         validateQueryParams(element);
     }
 
@@ -232,12 +222,10 @@ public class CompileTimeValidator {
                 continue;
             }
 
-            // Check for duplicate query param names
             if (!seenQueryParams.add(paramName)) {
                 error("Duplicate @QueryParam name: '" + paramName + "'", param);
             }
 
-            // Validate that the type can be converted from String
             TypeMirror paramType = param.asType();
             if (!isValidQueryParamType(paramType)) {
                 error("@QueryParam '" + paramName + "' has unsupported type: " + paramType
@@ -245,13 +233,11 @@ public class CompileTimeValidator {
                     param);
             }
 
-            // Warn if required but has default value
             if (queryParam.required() && !queryParam.defaultValue().isEmpty()) {
                 warning("@QueryParam '" + paramName + "' is required=true but also has defaultValue - defaultValue will be ignored",
                     param);
             }
 
-            // Check for common naming issues
             if (paramName.contains(" ") || paramName.contains("/") || paramName.contains("?")) {
                 error("@QueryParam name '" + paramName + "' contains invalid characters", param);
             }
@@ -266,7 +252,6 @@ public class CompileTimeValidator {
         if (name.equals("java.lang.String")) return true;
         if (name.equals("java.util.UUID")) return true;
 
-        // Check for static parse method or String constructor
         TypeElement typeElement = (TypeElement) types.asElement(type);
         if (typeElement == null) return false;
 
@@ -276,7 +261,7 @@ public class CompileTimeValidator {
                 if (m.getSimpleName().contentEquals("parse") &&
                     m.getModifiers().contains(Modifier.STATIC) &&
                     m.getParameters().size() == 1 &&
-                    m.getParameters().get(0).asType().toString().equals("java.lang.String")) {
+                    m.getParameters().getFirst().asType().toString().equals("java.lang.String")) {
                     return true;
                 }
             }
@@ -307,30 +292,24 @@ public class CompileTimeValidator {
 
     private void checkMissingAuth(String method, String path, ExecutableElement methodElement,
                                    TypeElement controllerClass) {
-        // Skip for GET/HEAD/OPTIONS unless returning sensitive data
         boolean isReadOnly = method.equals("GET") || method.equals("HEAD") || method.equals("OPTIONS");
 
-        // Check for authentication annotations
         boolean hasAuth = hasAuthentication(methodElement, controllerClass);
         boolean isAnonymous = hasAnnotation(methodElement, Anonymous.class)
             || hasAnnotation(controllerClass, Anonymous.class);
 
-        // Non-readonly methods without auth are errors
         if (!isReadOnly && !hasAuth && !isAnonymous) {
-            // Check if it's a mutation endpoint (POST/PUT/DELETE/PATCH)
             if (isMutation(method)) {
                 warning("Mutation endpoint '" + method + " " + path + "' lacks authentication. "
                     + "Add @Requires, @Secured, @Authenticated, or @Anonymous to suppress", methodElement);
             }
         }
 
-        // Check for sensitive return types on anonymous endpoints
         if (isAnonymous && returnsSensitiveData(methodElement)) {
             error("Endpoint returning potentially sensitive data is marked @Anonymous: "
                 + method + " " + path, methodElement);
         }
 
-        // Check for security annotations on controller but missing on method that needs it
         boolean classHasAuth = hasAuthentication(null, controllerClass);
         boolean methodExplicitlyAnonymous = hasAnnotation(methodElement, Anonymous.class);
 
@@ -340,10 +319,6 @@ public class CompileTimeValidator {
         }
     }
 
-    // ============================================================================
-    // Configuration Validation
-    // ============================================================================
-
     /**
      * Validates that a configuration key exists and is used consistently.
      *
@@ -352,18 +327,15 @@ public class CompileTimeValidator {
      * @param valueType the expected value type
      */
     public void validateConfigKey(String key, Element element, TypeMirror valueType) {
-        // Basic key format validation
         if (!isValidConfigKey(key)) {
             error("Invalid configuration key format: '" + key + "'. "
                 + "Keys must be lowercase, dot-separated, alphanumeric.", element);
             return;
         }
 
-        // Track usage for duplicate/warning detection
         String className = element.getEnclosingElement().toString();
         configKeysByClass.computeIfAbsent(className, k -> new HashSet<>()).add(key);
 
-        // Check for common misconfigurations
         if (key.contains("password") || key.contains("secret") || key.contains("token")) {
             if (!key.startsWith("secure.") && !key.startsWith("crypto.")) {
                 warning("Sensitive configuration key '" + key + "' should be prefixed with 'secure.' or 'crypto.'",
@@ -371,10 +343,6 @@ public class CompileTimeValidator {
             }
         }
     }
-
-    // ============================================================================
-    // Event Validation
-    // ============================================================================
 
     /**
      * Validates event emission schema.
@@ -386,7 +354,6 @@ public class CompileTimeValidator {
         TypeElement eventElement = (TypeElement) types.asElement(eventType);
         if (eventElement == null) return;
 
-        // Check for required fields in event
         boolean hasTimestamp = false;
         boolean hasId = false;
 
@@ -410,10 +377,6 @@ public class CompileTimeValidator {
         }
     }
 
-    // ============================================================================
-    // Serialization Validation
-    // ============================================================================
-
     /**
      * Validates that a type can be properly serialized/deserialized.
      * Detects non-serializable fields, cyclic graphs, missing constructors/accessors.
@@ -424,7 +387,6 @@ public class CompileTimeValidator {
     public void validateSerialization(TypeMirror type, Element element) {
         if (type == null) return;
 
-        // Skip primitives and known serializable types
         if (isPrimitiveOrWrapper(type)) return;
         String typeName = type.toString();
         if (typeName.startsWith("java.lang.") || typeName.startsWith("java.util.") ||
@@ -435,18 +397,14 @@ public class CompileTimeValidator {
         TypeElement typeElement = (TypeElement) types.asElement(type);
         if (typeElement == null) return;
 
-        // Check for non-serializable fields (transient without proper handling)
         validateSerializableFields(typeElement, new HashSet<>(), element);
 
-        // Check for cyclic references
         Set<String> visited = new HashSet<>();
         visited.add(typeElement.getQualifiedName().toString());
         checkCyclicGraph(typeElement, visited, new ArrayList<>(), element);
 
-        // Check for missing default constructor
         checkDefaultConstructor(typeElement, element);
 
-        // Check for proper accessors
         checkAccessors(typeElement, element);
     }
 
@@ -459,7 +417,6 @@ public class CompileTimeValidator {
             VariableElement field = (VariableElement) enclosed;
             if (field.getModifiers().contains(Modifier.STATIC)) continue;
             if (field.getModifiers().contains(Modifier.TRANSIENT)) {
-                // Check for @JsonIgnore or similar
                 boolean hasJsonIgnore = hasAnnotationByName(field, "JsonIgnore", "JsonIgnoreProperties", "JsonTransient");
                 if (!hasJsonIgnore) {
                     warning("Transient field '" + field.getSimpleName() + "' in '"
@@ -471,7 +428,6 @@ public class CompileTimeValidator {
 
             TypeMirror fieldType = field.asType();
 
-            // Check for unsupported types
             if (!isSerializableType(fieldType)) {
                 String typeStr = fieldType.toString();
                 if (typeStr.contains("Thread") || typeStr.contains("InputStream") ||
@@ -483,7 +439,6 @@ public class CompileTimeValidator {
                 }
             }
 
-            // Check for raw types (generics without type parameters)
             if (fieldType instanceof javax.lang.model.type.DeclaredType declaredType) {
                 if (!declaredType.getTypeArguments().isEmpty()) {
                     for (TypeMirror arg : declaredType.getTypeArguments()) {
@@ -514,9 +469,7 @@ public class CompileTimeValidator {
 
             String fieldTypeName = fieldElement.getQualifiedName().toString();
 
-            // Skip collection types
             if (isCollectionType(fieldType)) {
-                // Check element type of collection
                 if (fieldType instanceof javax.lang.model.type.DeclaredType declaredType) {
                     for (TypeMirror arg : declaredType.getTypeArguments()) {
                         TypeElement argElement = (TypeElement) types.asElement(arg);
@@ -533,7 +486,6 @@ public class CompileTimeValidator {
                 continue;
             }
 
-            // Check for direct cycle
             if (visited.contains(fieldTypeName)) {
                 error("Cyclic reference detected in class '" + typeName + "': field '"
                     + field.getSimpleName() + "' references parent type '" + fieldTypeName
@@ -542,7 +494,6 @@ public class CompileTimeValidator {
                 continue;
             }
 
-            // Recurse into the field type
             if (!isPrimitiveOrWrapper(fieldType) && !isCollectionType(fieldType)) {
                 path.add(typeName);
                 Set<String> newVisited = new HashSet<>(visited);
@@ -569,11 +520,9 @@ public class CompileTimeValidator {
             }
         }
 
-        // If no constructors defined, Java provides default
         if (!hasAnyCtor) return;
 
         if (!hasDefaultCtor) {
-            // Check for @JsonCreator or @AllArgsConstructor
             boolean hasJsonCreator = hasAnnotationByName(typeElement, "JsonCreator", "AllArgsConstructor");
             if (!hasJsonCreator) {
                 warning("Class '" + typeElement.getSimpleName()
@@ -587,26 +536,22 @@ public class CompileTimeValidator {
         Map<String, Boolean> fieldHasGetter = new HashMap<>();
         Map<String, Boolean> fieldHasSetter = new HashMap<>();
 
-        // Collect fields
         for (Element enclosed : typeElement.getEnclosedElements()) {
             if (enclosed.getKind() != ElementKind.FIELD) continue;
             VariableElement field = (VariableElement) enclosed;
             if (field.getModifiers().contains(Modifier.STATIC)) continue;
 
             String fieldName = field.getSimpleName().toString();
-            String capitalized = capitalize(fieldName);
 
             fieldHasGetter.put(fieldName, false);
             fieldHasSetter.put(fieldName, false);
         }
 
-        // Check for getters/setters
         for (Element enclosed : typeElement.getEnclosedElements()) {
             if (enclosed.getKind() != ElementKind.METHOD) continue;
             ExecutableElement method = (ExecutableElement) enclosed;
             String methodName = method.getSimpleName().toString();
 
-            // Getter: getXxx() or isXxx() for booleans
             if (methodName.startsWith("get") && methodName.length() > 3) {
                 String fieldName = decapitalize(methodName.substring(3));
                 if (fieldHasGetter.containsKey(fieldName)) {
@@ -619,7 +564,6 @@ public class CompileTimeValidator {
                 }
             }
 
-            // Setter: setXxx(T value)
             if (methodName.startsWith("set") && methodName.length() > 3 && method.getParameters().size() == 1) {
                 String fieldName = decapitalize(methodName.substring(3));
                 if (fieldHasSetter.containsKey(fieldName)) {
@@ -628,14 +572,12 @@ public class CompileTimeValidator {
             }
         }
 
-        // Report missing accessors
         for (Map.Entry<String, Boolean> entry : fieldHasGetter.entrySet()) {
             String fieldName = entry.getKey();
             boolean hasGetter = entry.getValue();
             boolean hasSetter = fieldHasSetter.getOrDefault(fieldName, false);
 
             if (!hasGetter) {
-                // Check for public field
                 VariableElement field = findField(typeElement, fieldName);
                 if (field != null && !field.getModifiers().contains(Modifier.PUBLIC)) {
                     warning("Field '" + fieldName + "' in class '"
@@ -647,7 +589,6 @@ public class CompileTimeValidator {
             if (!hasSetter) {
                 VariableElement field = findField(typeElement, fieldName);
                 if (field != null) {
-                    // Check if field is final - may be OK
                     boolean isFinal = field.getModifiers().contains(Modifier.FINAL);
                     boolean hasCtorParam = hasConstructorParameter(typeElement, fieldName);
 
@@ -685,10 +626,6 @@ public class CompileTimeValidator {
         return false;
     }
 
-    // ============================================================================
-    // Exception Handling Validation
-    // ============================================================================
-
     private final Map<String, List<ExceptionHandlerInfo>> exceptionHandlersByClass = new HashMap<>();
     private final Set<String> handledExceptionTypes = new HashSet<>();
 
@@ -707,7 +644,6 @@ public class CompileTimeValidator {
         exceptionHandlersByClass.computeIfAbsent(handlerClassName, k -> new ArrayList<>()).add(info);
         handledExceptionTypes.add(exceptionTypeName);
 
-        // Check for shadowed handlers in the same class
         checkShadowedExceptionHandlers(handlerClass, method, exceptionType);
     }
 
@@ -723,10 +659,8 @@ public class CompileTimeValidator {
         for (TypeMirror thrownType : thrownTypes) {
             String thrownTypeName = thrownType.toString();
 
-            // Check if this exception type is handled
             boolean isHandled = isExceptionHandled(thrownTypeName);
 
-            // Also check for RuntimeException subclasses (unchecked)
             TypeElement thrownElement = (TypeElement) types.asElement(thrownType);
             boolean isRuntime = isRuntimeException(thrownElement);
 
@@ -735,7 +669,6 @@ public class CompileTimeValidator {
                     + methodName + "' is not handled by any @ExceptionHandler", method);
             }
 
-            // Check for overly broad exception declarations
             if (thrownTypeName.equals("java.lang.Exception") || thrownTypeName.equals("java.lang.Throwable")) {
                 warning("Method '" + methodName + "' declares overly broad exception type: "
                     + thrownTypeName + " - consider using specific exception types", method);
@@ -747,14 +680,12 @@ public class CompileTimeValidator {
      * Checks for conflicting exception handlers across all handlers.
      */
     public void validateConflictingExceptionHandlers() {
-        // Build exception hierarchy map
         Map<String, Set<String>> exceptionHierarchy = new HashMap<>();
 
         for (List<ExceptionHandlerInfo> handlers : exceptionHandlersByClass.values()) {
             for (ExceptionHandlerInfo handler : handlers) {
                 exceptionHierarchy.putIfAbsent(handler.exceptionType(), new HashSet<>());
 
-                // Find parent exception handlers
                 for (ExceptionHandlerInfo other : handlers) {
                     if (other == handler) continue;
                     if (isAssignableFrom(other.exceptionType(), handler.exceptionType())) {
@@ -764,12 +695,10 @@ public class CompileTimeValidator {
             }
         }
 
-        // Report conflicting handlers
         for (List<ExceptionHandlerInfo> handlers : exceptionHandlersByClass.values()) {
             for (ExceptionHandlerInfo handler : handlers) {
                 Set<String> parents = exceptionHierarchy.getOrDefault(handler.exceptionType(), Set.of());
                 if (!parents.isEmpty()) {
-                    // This handler catches exceptions that parent handlers also catch
                     for (String parent : parents) {
                         warning("Exception handler for '" + handler.exceptionType() + "' in "
                             + handler.className + " may be shadowed by handler for '" + parent + "'",
@@ -784,7 +713,6 @@ public class CompileTimeValidator {
                                                  TypeMirror exceptionType) {
         String newExceptionType = exceptionType.toString();
 
-        // Check existing handlers in same class
         for (Element enclosed : handlerClass.getEnclosedElements()) {
             if (enclosed == method) continue;
             if (enclosed.getKind() != ElementKind.METHOD) continue;
@@ -792,11 +720,10 @@ public class CompileTimeValidator {
             ExceptionHandler ann = enclosed.getAnnotation(ExceptionHandler.class);
             if (ann == null) continue;
 
-            // Get exception type from method's first parameter (exception handlers take Exception as first param)
             List<? extends VariableElement> params = ((ExecutableElement) enclosed).getParameters();
             if (params.isEmpty()) continue;
 
-            TypeMirror handledTypeMirror = params.get(0).asType();
+            TypeMirror handledTypeMirror = params.getFirst().asType();
             String handledType = handledTypeMirror.toString();
 
             if (isAssignableFrom(handledType, newExceptionType)) {
@@ -808,10 +735,8 @@ public class CompileTimeValidator {
     }
 
     private boolean isExceptionHandled(String exceptionTypeName) {
-        // Check exact match
         if (handledExceptionTypes.contains(exceptionTypeName)) return true;
 
-        // Check if any parent exception is handled
         TypeElement exceptionElement = elements.getTypeElement(exceptionTypeName);
         if (exceptionElement == null) return false;
 
@@ -854,10 +779,6 @@ public class CompileTimeValidator {
         return types.isAssignable(childElement.asType(), parentElement.asType());
     }
 
-    // ============================================================================
-    // Filter Chain Validation
-    // ============================================================================
-
     private final Map<String, Set<String>> filterDependencies = new HashMap<>();
     private final Map<String, Set<String>> filtersByRoute = new HashMap<>();
 
@@ -865,7 +786,6 @@ public class CompileTimeValidator {
      * Validates a filter class for proper chain participation.
      */
     public void validateFilterClass(TypeElement filterClass) {
-        // Check for required no-arg constructor
         boolean hasNoArgCtor = false;
         for (Element enclosed : filterClass.getEnclosedElements()) {
             if (enclosed.getKind() != ElementKind.CONSTRUCTOR) continue;
@@ -881,7 +801,6 @@ public class CompileTimeValidator {
                 + "' must have a public no-arg constructor for instantiation", filterClass);
         }
 
-        // Check that it implements the Filter interface or has @Order
         boolean hasOrder = hasAnnotationByName(filterClass, "Order", "Priority");
         boolean implementsFilter = false;
 
@@ -892,7 +811,6 @@ public class CompileTimeValidator {
             }
         }
 
-        // Check for dependency annotations
         for (AnnotationMirror ann : filterClass.getAnnotationMirrors()) {
             String annName = ann.getAnnotationType().toString();
             if (annName.contains("DependsOn") || annName.contains("Requires")) {
@@ -906,7 +824,6 @@ public class CompileTimeValidator {
      * Validates filter chain for a route.
      */
     public void validateFilterChain(String route, List<String> filters, Element context) {
-        // Check for duplicate filters in chain
         Set<String> seen = new HashSet<>();
         for (String filter : filters) {
             if (!seen.add(filter)) {
@@ -914,11 +831,9 @@ public class CompileTimeValidator {
             }
         }
 
-        // Store for cross-route analysis
         String routeKey = route;
         filtersByRoute.put(routeKey, new LinkedHashSet<>(filters));
 
-        // Check filter dependencies
         for (String filter : filters) {
             Set<String> deps = filterDependencies.get(filter);
             if (deps != null) {
@@ -936,7 +851,6 @@ public class CompileTimeValidator {
      * Performs final cross-route filter validation.
      */
     public void validateFilterChains() {
-        // Detect circular dependencies
         for (String filter : filterDependencies.keySet()) {
             Set<String> visited = new HashSet<>();
             List<String> path = new ArrayList<>();
@@ -945,7 +859,6 @@ public class CompileTimeValidator {
             }
         }
 
-        // Check for inconsistent filter ordering
         Map<String, Integer> globalOrder = new HashMap<>();
         for (Map.Entry<String, Set<String>> entry : filtersByRoute.entrySet()) {
             int pos = 0;
@@ -963,7 +876,6 @@ public class CompileTimeValidator {
 
     private boolean hasCircularDependency(String filter, Set<String> visited, List<String> path) {
         if (!visited.add(filter)) {
-            // Found cycle - add to path for reporting
             path.add(filter);
             return true;
         }
@@ -1003,22 +915,14 @@ public class CompileTimeValidator {
         return deps;
     }
 
-    // ============================================================================
-    // Utility Methods
-    // ============================================================================
-
     private boolean hasAuthentication(ExecutableElement methodElement, TypeElement controllerClass) {
-        // Check method-level auth
         if (methodElement != null) {
             if (hasAnnotation(methodElement, Requires.class)) return true;
             if (hasAnnotation(methodElement, Authenticated.class)) return true;
         }
 
-        // Check class-level auth
         if (hasAnnotation(controllerClass, Requires.class)) return true;
-        if (hasAnnotation(controllerClass, Authenticated.class)) return true;
-
-        return false;
+        return hasAnnotation(controllerClass, Authenticated.class);
     }
 
     private boolean isMutation(String method) {
@@ -1039,7 +943,6 @@ public class CompileTimeValidator {
             if (typeName.toLowerCase().contains("credential")) return true;
         }
 
-        // Check generic parameters
         if (returnType instanceof javax.lang.model.type.DeclaredType declaredType) {
             for (TypeMirror typeArg : declaredType.getTypeArguments()) {
                 String argName = typeArg.toString();
@@ -1056,17 +959,16 @@ public class CompileTimeValidator {
         String[] segments1 = path1.split("/");
         String[] segments2 = path2.split("/");
 
-        if (segments1.length != segments2.length) return false;
+        int length = segments1.length;
+        if (length != segments2.length) return false;
 
-        for (int i = 0; i < segments1.length; i++) {
+        for (int i = 0; i < length; i++) {
             String s1 = segments1[i];
             String s2 = segments2[i];
 
-            // If both are literals and differ, no collision
             if (!s1.isEmpty() && s1.charAt(0) == '{' && s2.charAt(0) == '{' && !s1.equals(s2)) {
                 return false;
             }
-            // If one or both are params, they could match
         }
 
         return true;
@@ -1086,7 +988,6 @@ public class CompileTimeValidator {
     }
 
     private String normalizePath(String path) {
-        // Remove trailing slash except for root
         if (path.length() > 1 && path.charAt(path.length() - 1) == '/') {
             path = path.substring(0, path.length() - 1);
         }
@@ -1095,17 +996,12 @@ public class CompileTimeValidator {
 
     private boolean isValidConfigKey(String key) {
         if (key == null || key.isEmpty()) return false;
-        // lowercase, dot-separated, alphanumeric with hyphens and underscores
         return VALIDATION_PATTERN.matcher(key).matches();
     }
 
     private boolean hasAnnotation(Element element, Class<? extends Annotation> annotationClass) {
         return element.getAnnotation(annotationClass) != null;
     }
-
-    // ============================================================================
-    // Error Reporting
-    // ============================================================================
 
     private void error(String message, Element element) {
         messager.printMessage(Diagnostic.Kind.ERROR, "[Magnesium] " + message, element);
@@ -1114,10 +1010,6 @@ public class CompileTimeValidator {
     private void warning(String message, Element element) {
         messager.printMessage(Diagnostic.Kind.WARNING, "[Magnesium] " + message, element);
     }
-
-    // ============================================================================
-    // Inner Classes
-    // ============================================================================
 
     private record RouteKey(String method, String path) {
         @Override
@@ -1134,10 +1026,6 @@ public class CompileTimeValidator {
     }
 
     private record ExceptionHandlerInfo(String className, String methodName, String exceptionType) {}
-
-    // ============================================================================
-    // Helper Methods for Serialization Validation
-    // ============================================================================
 
     private boolean isPrimitiveOrWrapper(TypeMirror type) {
         String name = type.toString();

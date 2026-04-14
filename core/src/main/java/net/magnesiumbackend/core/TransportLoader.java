@@ -1,7 +1,6 @@
 package net.magnesiumbackend.core;
 
 import net.magnesiumbackend.core.http.MagnesiumTransport;
-import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,15 +42,17 @@ public final class TransportLoader {
      * @throws IllegalStateException if more than one transport is available
      */
     public static Optional<MagnesiumTransport> load() {
-        List<ServiceLoader.Provider<MagnesiumTransport>> providers =
-            ServiceLoader.load(MagnesiumTransport.class)
-                .stream()
-                .toList();
+        ServiceLoader<MagnesiumTransport> loaded = ServiceLoader.load(MagnesiumTransport.class);
+        List<MagnesiumTransport> providers = new ArrayList<>(1);
+
+        for (MagnesiumTransport p : loaded) {
+            providers.add(p);
+        }
 
         if (providers.size() > 1) {
             List<String> list = new ArrayList<>(providers.size());
-            for (ServiceLoader.Provider<MagnesiumTransport> p : providers) {
-                String name = p.type().getName();
+            for (MagnesiumTransport p : providers) {
+                String name = p.getClass().getName();
                 list.add(name);
             }
             throw new IllegalStateException(
@@ -61,7 +62,7 @@ public final class TransportLoader {
             );
         }
 
-        ServiceLoader.Provider<MagnesiumTransport> first = providers.getFirst();
-        return first != null ? Optional.ofNullable(first.get()) : Optional.empty();
+        MagnesiumTransport first = providers.getFirst();
+        return Optional.ofNullable(first);
     }
 }

@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
  *
  * // Get current request trace
  * debugger.getCurrentTrace().ifPresent(trace -> {
- *     System.out.println("Request: " + trace.method() + " " + trace.path());
- *     System.out.println("Filters: " + trace.filterTraces().size());
+ *     logger.info("Request: " + trace.method() + " " + trace.path());
+ *     logger.info("Filters: " + trace.filterTraces().size());
  * });
  *
  * // Print performance report
@@ -219,9 +219,9 @@ public final class MagnesiumDebugger {
         List<Map.Entry<String, FilterMetrics>> toSort = new ArrayList<>(filterMetrics.entrySet());
         toSort.sort(Comparator.comparingDouble(e -> -e.getValue().avgTimeNanos()));
         List<Map.Entry<String, FilterMetrics>> list = new ArrayList<>(toSort.size());
-        for (Map.Entry<String, FilterMetrics> stringFilterMetricsEntry : toSort) {
+        for (Map.Entry<String, FilterMetrics> entry : toSort) {
             if (limit-- == 0) break;
-            list.add(stringFilterMetricsEntry);
+            list.add(entry);
         }
         return list;
     }
@@ -233,9 +233,9 @@ public final class MagnesiumDebugger {
         List<Map.Entry<String, RouteMetrics>> toSort = new ArrayList<>(routeMetrics.entrySet());
         toSort.sort(Comparator.comparingDouble(e -> -e.getValue().avgTimeNanos()));
         List<Map.Entry<String, RouteMetrics>> list = new ArrayList<>(toSort);
-        for (Map.Entry<String, RouteMetrics> stringRouteMetricsEntry : toSort) {
+        for (Map.Entry<String, RouteMetrics> entry : toSort) {
             if (limit-- == 0) break;
-            list.add(stringRouteMetricsEntry);
+            list.add(entry);
         }
         return list;
     }
@@ -251,33 +251,29 @@ public final class MagnesiumDebugger {
     }
 
     /**
-     * Prints a performance report to System.out.
+     * Prints a performance report to logger.
      */
     public static void printPerformanceReport() {
-        System.out.println("\n=== Magnesium Performance Report ===\n");
+        logger.info("\n=== Magnesium Performance Report ===\n");
 
         // Slowest routes
-        System.out.println("Slowest Routes (avg time):");
+        logger.info("Slowest Routes (avg time):");
         getSlowestRoutes(10).forEach(entry -> {
             RouteMetrics m = entry.getValue();
-            System.out.printf("  %s: %.2fms (calls: %d, errors: %d)%n",
+            logger.info("  {}: {}ms (calls: {}, errors: {})",
                 entry.getKey(), m.avgTimeNanos() / 1_000_000.0, m.callCount(), m.errorCount());
         });
 
-        System.out.println();
-
         // Slowest filters
-        System.out.println("Slowest Filters (avg time):");
+        logger.info("Slowest Filters (avg time):");
         getSlowestFilters(10).forEach(entry -> {
             FilterMetrics m = entry.getValue();
-            System.out.printf("  %s: %.2fms (calls: %d, short-circuits: %d)%n",
+            logger.info("  {}: {}ms (calls: {}, short-circuits: {})",
                 entry.getKey(), m.avgTimeNanos() / 1_000_000.0, m.callCount(), m.shortCircuitCount());
         });
 
-        System.out.println();
-
         // Recent traces summary
-        System.out.println("Recent Request Summary:");
+        logger.info("Recent Request Summary:");
         long totalRequests = completedTraces.size();
         long shortCircuited = 0L;
         for (RequestTrace completedTrace : completedTraces) {
@@ -292,11 +288,11 @@ public final class MagnesiumDebugger {
             }
         }
 
-        System.out.printf("  Total completed: %d%n", totalRequests);
-        System.out.printf("  Short-circuited: %d (%.1f%%)%n", shortCircuited, 100.0 * shortCircuited / totalRequests);
-        System.out.printf("  With errors: %d (%.1f%%)%n", errors, 100.0 * errors / totalRequests);
+        logger.info("  Total completed: {}", totalRequests);
+        logger.info("  Short-circuited: {} ({})", shortCircuited, 100.0 * shortCircuited / totalRequests);
+        logger.info("  With errors: {} ({})", errors, 100.0 * errors / totalRequests);
 
-        System.out.println("\n====================================\n");
+        logger.info("\n====================================\n");
     }
 
     // Internal helpers

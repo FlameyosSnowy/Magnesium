@@ -1,5 +1,6 @@
 package net.magnesiumbackend.core;
 
+import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.websocket.WebSocketSessionManager;
 
 import java.util.ArrayList;
@@ -39,15 +40,18 @@ public final class WebSocketSessionManagerLoader {
      * @throws IllegalStateException if more than one session manager is available
      */
     public static Optional<WebSocketSessionManager> load() {
-        List<ServiceLoader.Provider<WebSocketSessionManager>> providers =
-            ServiceLoader.load(WebSocketSessionManager.class)
-                .stream()
-                .toList();
+
+        ServiceLoader<WebSocketSessionManager> loaded = ServiceLoader.load(WebSocketSessionManager.class);
+        List<WebSocketSessionManager> providers = new ArrayList<>(1);
+
+        for (WebSocketSessionManager p : loaded) {
+            providers.add(p);
+        }
 
         if (providers.size() > 1) {
             List<String> list = new ArrayList<>(providers.size());
-            for (ServiceLoader.Provider<WebSocketSessionManager> p : providers) {
-                String name = p.type().getName();
+            for (WebSocketSessionManager p : providers) {
+                String name = p.getClass().getName();
                 list.add(name);
             }
             throw new IllegalStateException(
@@ -57,7 +61,7 @@ public final class WebSocketSessionManagerLoader {
             );
         }
 
-        ServiceLoader.Provider<WebSocketSessionManager> first = providers.getFirst();
-        return first != null ? Optional.ofNullable(first.get()) : Optional.empty();
+        WebSocketSessionManager first = providers.getFirst();
+        return Optional.ofNullable(first);
     }
 }
