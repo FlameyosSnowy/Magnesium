@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.*;
 import java.io.File;
-import java.io.FileWriter;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -97,7 +96,7 @@ class HttpServerSslTest {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/health", ctx -> ResponseEntity.ok(Map.of("status", "secure", "https", true)))
             .get("/api/data/{id}", ctx -> {
-                String id = ctx.pathVariables().get("id");
+                String id = ctx.pathVariables().getRaw("id");
                 return ResponseEntity.ok(Map.of(
                     "id", id,
                     "secure", true,

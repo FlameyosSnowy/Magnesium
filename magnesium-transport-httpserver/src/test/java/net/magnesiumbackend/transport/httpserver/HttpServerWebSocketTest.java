@@ -1,12 +1,13 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.http.websocket.WebSocketHandler;
 import net.magnesiumbackend.core.http.websocket.WebSocketMessage;
 import net.magnesiumbackend.core.http.websocket.WebSocketSession;
-import net.magnesiumbackend.core.json.DslJsonProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,10 +61,7 @@ class HttpServerWebSocketTest {
             .build();
 
         application = MagnesiumApplication.builder()
-            .json(new DslJsonProvider())
-            .http(http -> {
-                http.server(httpServer);
-            })
+            .http(http -> http.server(httpServer))
             .onStart(ctx -> latch.countDown())
             .onExit(ctx -> {})
             .build();
@@ -140,7 +138,7 @@ class HttpServerWebSocketTest {
     @Test
     void testWebSocketConnectionWithPathVariables() throws Exception {
         AtomicReference<String> capturedRoomId = new AtomicReference<>();
-        AtomicReference<Map<String, String>> capturedPathVars = new AtomicReference<>();
+        AtomicReference<HttpPathParamIndex> capturedPathVars = new AtomicReference<>();
         CountDownLatch openLatch = new CountDownLatch(1);
 
         startWebSocketServer("/ws/rooms/{roomId}", new WebSocketHandler() {
@@ -162,7 +160,7 @@ class HttpServerWebSocketTest {
 
         assertEquals(roomId, capturedRoomId.get(), "Room ID should be captured from path variable");
         assertNotNull(capturedPathVars.get(), "Path variables should be available");
-        assertTrue(capturedPathVars.get().containsKey("roomId"), "Path variables should contain roomId");
+        assertNotNull(capturedPathVars.get().get("roomId"), "Path variables should contain roomId");
 
         closeWebSocketGracefully(socket);
     }
@@ -243,7 +241,7 @@ class HttpServerWebSocketTest {
 
     @Test
     void testWebSocketSessionHeaders() throws Exception {
-        AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
+        AtomicReference<HttpHeaderIndex> capturedHeaders = new AtomicReference<>();
         CountDownLatch openLatch = new CountDownLatch(1);
 
         startWebSocketServer("/ws/headers", new WebSocketHandler() {
@@ -259,10 +257,10 @@ class HttpServerWebSocketTest {
 
         assertTrue(openLatch.await(2, TimeUnit.SECONDS), "onOpen should be called");
 
-        Map<String, String> headers = capturedHeaders.get();
+        HttpHeaderIndex headers = capturedHeaders.get();
         assertNotNull(headers, "Headers should be captured");
         // The headers should contain the upgrade information
-        assertTrue(headers.containsKey("Upgrade") || headers.containsKey("upgrade"),
+        assertTrue(headers.get("Upgrade") != null || headers.get("upgrade") != null,
             "Headers should contain Upgrade header");
 
         closeWebSocketGracefully(socket);
@@ -283,9 +281,11 @@ class HttpServerWebSocketTest {
         OutputStream out = socket.getOutputStream();
 
         String request = String.format(
-            "GET /ws-only HTTP/1.1\r\n" +
-            "Host: localhost:%d\r\n" +
-            "\r\n",
+            """
+            GET /ws-only HTTP/1.1\r
+            Host: localhost:%d\r
+            \r
+            """,
             actualPort
         );
         out.write(request.getBytes(StandardCharsets.UTF_8));
