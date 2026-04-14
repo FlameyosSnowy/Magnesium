@@ -202,6 +202,9 @@ public class LifecycleRegistrationGenerator {
         }
         
 
+        // Compute topological order before resource creation
+        List<LifecycleMetadata> ordered = computeTopologicalOrder();
+
         try {
             String packageName = "net.magnesiumbackend.core.lifecycle.generated";
             String className = "LifecycleRegistration" + System.currentTimeMillis();
@@ -218,8 +221,6 @@ public class LifecycleRegistrationGenerator {
                 writer.write("# Generated at: " + new Date() + "\n\n");
 
                 // Write components in topological order
-                List<LifecycleMetadata> ordered = computeTopologicalOrder();
-
                 for (LifecycleMetadata data : ordered) {
                     writer.write("component=" + data.className + "\n");
                     writer.write("stage=" + data.stage + "\n");
