@@ -39,6 +39,10 @@ import java.util.function.Consumer;
  */
 public interface ResponseEntity<T> {
 
+    static <T> ResponseEntity<T> notFound() {
+        return of(404, null);
+    }
+
     /**
      * Returns the HTTP status code.
      *
