@@ -362,37 +362,39 @@ public class LifecycleRegistrationGenerator {
             }
         }
 
-        path.remove(path.size() - 1);
+        path.removeLast();
         recursionStack.remove(current);
         return null;
     }
 
     private String formatCycle(List<String> cycle) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(32);
         for (int i = 0; i < cycle.size(); i++) {
-            if (i > 0) sb.append(" → ");
+            if (i > 0) sb.append(" -> ");
             String className = cycle.get(i);
             int lastDot = className.lastIndexOf('.');
             sb.append(lastDot > 0 ? className.substring(lastDot + 1) : className);
         }
-        sb.append(" → ...");
+        sb.append(" -> ...");
         return sb.toString();
     }
 
     private List<LifecycleMetadata> computeTopologicalOrder() {
-        Map<String, Integer> inDegree = new HashMap<>();
+        Collection<LifecycleMetadata> values = metadata.values();
+        Map<String, Integer> inDegree = new HashMap<>(values.size());
         Map<LifecycleStage, List<String>> byStage = new EnumMap<>(LifecycleStage.class);
 
         // Initialize
-        for (LifecycleMetadata data : metadata.values()) {
+        for (LifecycleMetadata data : values) {
             inDegree.put(data.className, data.dependencies.size());
-            byStage.computeIfAbsent(data.stage, k -> new ArrayList<>()).add(data.className);
+            byStage.computeIfAbsent(data.stage, k -> new ArrayList<>(16)).add(data.className);
         }
 
-        List<LifecycleMetadata> result = new ArrayList<>();
+        Set<LifecycleStage> stages = LifecycleStage.LIFECYCLE_STAGES;
+        List<LifecycleMetadata> result = new ArrayList<>(16);
 
         // Process stages in order
-        for (LifecycleStage stage : LifecycleStage.values()) {
+        for (LifecycleStage stage : stages) {
             List<String> stageComponents = byStage.getOrDefault(stage, List.of());
             Queue<String> queue = new LinkedList<>();
 
@@ -407,7 +409,7 @@ public class LifecycleRegistrationGenerator {
                 result.add(metadata.get(current));
 
                 // Reduce in-degree for dependents
-                for (LifecycleMetadata dependent : metadata.values()) {
+                for (LifecycleMetadata dependent : values) {
                     if (dependent.dependencies.contains(current)) {
                         int newDegree = inDegree.get(dependent.className) - 1;
                         inDegree.put(dependent.className, newDegree);

@@ -4,6 +4,10 @@ import net.magnesiumbackend.core.annotations.Lifecycle;
 import net.magnesiumbackend.core.lifecycle.LifecycleGraph;
 import net.magnesiumbackend.core.lifecycle.LifecycleRegistry;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Lifecycle stages for component initialization ordering.
  *
@@ -56,5 +60,7 @@ public enum LifecycleStage {
      * Used for health checks, service advertisement, metrics export,
      * and any final setup that requires all other services to be ready.
      */
-    READY
+    READY;
+
+    public static final Set<LifecycleStage> LIFECYCLE_STAGES = Collections.unmodifiableSet(EnumSet.allOf(LifecycleStage.class));
 }
