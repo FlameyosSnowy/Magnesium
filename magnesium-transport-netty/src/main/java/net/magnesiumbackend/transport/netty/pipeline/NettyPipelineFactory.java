@@ -24,13 +24,12 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * Central pipeline factory — all pipeline construction lives here.
+ * Central pipeline factory, all pipeline construction lives here.
  * Both the ChannelInitializer and the ALPN negotiator delegate to this
  * class, eliminating duplication between HTTP/1.1 and HTTP/2 paths.
  */
 public final class NettyPipelineFactory {
 
-    /** Max aggregated request body size — 10 MB default. */
     private static final int DEFAULT_MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
 
     private final HttpRouteRegistry         httpRouteRegistry;

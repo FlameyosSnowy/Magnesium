@@ -77,7 +77,8 @@ public class RouteTree<T> {
             Slice[] keys = current.staticKeys;
             RouteNode<T>[] children = current.staticChildren;
 
-            for (int i = 0; i < keys.length; i++) {
+            int keysLength = keys.length;
+            for (int i = 0; i < keysLength; i++) {
                 Slice key = keys[i];
                 if (key == null) continue;
 
@@ -139,7 +140,7 @@ public class RouteTree<T> {
 
     private List<RouteEntry<T>> buildEntries() {
         List<RouteEntry<T>> result = new ArrayList<>(16);
-        buildRecursive(root, new ArrayList<>(), result);
+        buildRecursive(root, new ArrayList<>(32), result);
         return List.copyOf(result);
     }
 
@@ -245,7 +246,7 @@ public class RouteTree<T> {
         if (cached != null) return cached;
 
         List<RouteDumpEntry<T>> out = new ArrayList<>(16);
-        dumpRecursive(root, new ArrayList<>(), out);
+        dumpRecursive(root, new ArrayList<>(32), out);
         cachedDump = out;
         return List.copyOf(out);
     }
@@ -260,20 +261,23 @@ public class RouteTree<T> {
         }
 
         // static routes
-        for (int i = 0; i < node.staticKeys.length; i++) {
-            Slice key = node.staticKeys[i];
+        Slice[] staticKeys = node.staticKeys;
+        int length = staticKeys.length;
+        RouteNode<T>[] children = node.staticChildren;
+        for (int i = 0; i < length; i++) {
+            Slice key = staticKeys[i];
             if (key == null) continue;
 
             path.add(key);
-            dumpRecursive(node.staticChildren[i], path, out);
-            path.remove(path.size() - 1);
+            dumpRecursive(children[i], path, out);
+            path.removeLast();
         }
 
         // variable route
         if (node.variableChild != null) {
             path.add(node.variableChild.variableName);
             dumpRecursive(node.variableChild, path, out);
-            path.remove(path.size() - 1);
+            path.removeLast();
         }
     }
 

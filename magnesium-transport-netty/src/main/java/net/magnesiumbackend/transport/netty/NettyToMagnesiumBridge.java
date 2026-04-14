@@ -80,13 +80,4 @@ public final class NettyToMagnesiumBridge {
         if (version == HttpVersion.HTTP_1_1) return net.magnesiumbackend.core.http.response.HttpVersion.HTTP_1_1;
         throw new IllegalArgumentException("Unsupported Netty HttpVersion: " + version);
     }
-
-    /**
-     * HTTP/2 frames carry no HttpVersion — version is implied by the codec.
-     * Use this instead of asMagnesiumVersion() in Http2ServerHandler.
-     */
-    @Contract(pure = true)
-    public static net.magnesiumbackend.core.http.response.HttpVersion http2Version() {
-        return net.magnesiumbackend.core.http.response.HttpVersion.HTTP_2_0;
-    }
 }

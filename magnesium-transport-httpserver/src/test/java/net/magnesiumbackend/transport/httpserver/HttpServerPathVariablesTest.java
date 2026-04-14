@@ -1,9 +1,9 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
-import net.magnesiumbackend.core.json.DslJsonProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,7 +52,6 @@ class HttpServerPathVariablesTest {
         CountDownLatch latch = new CountDownLatch(1);
 
         application = MagnesiumApplication.builder()
-            .json(new DslJsonProvider())
             .http(http -> {
                 http.server(httpServer);
             })
@@ -79,7 +78,7 @@ class HttpServerPathVariablesTest {
     void testSimplePathVariable() throws Exception {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/users/{id}", ctx -> {
-                String userId = ctx.pathVariables().getRaw("id");
+                String userId = ctx.pathVariables().get("id");
                 return ResponseEntity.ok(Map.of(
                     "userId", userId,
                     "message", "User found"
@@ -106,7 +105,7 @@ class HttpServerPathVariablesTest {
     void testMultiplePathVariables() throws Exception {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/users/{userId}/orders/{orderId}", ctx -> {
-                Map<String, String> pathVars = ctx.pathVariables();
+                HttpPathParamIndex pathVars = ctx.pathVariables();
                 return ResponseEntity.ok(Map.of(
                     "userId", pathVars.get("userId"),
                     "orderId", pathVars.get("orderId")
@@ -133,7 +132,7 @@ class HttpServerPathVariablesTest {
     void testNestedPathVariables() throws Exception {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/api/version/{version}/resources/{resourceId}/items/{itemId}", ctx -> {
-                Map<String, String> pathVars = ctx.pathVariables();
+                HttpPathParamIndex pathVars = ctx.pathVariables();
                 return ResponseEntity.ok(Map.of(
                     "version", pathVars.get("version"),
                     "resourceId", pathVars.get("resourceId"),
@@ -245,7 +244,7 @@ class HttpServerPathVariablesTest {
     void testPathVariableWithSpecialCharacters() throws Exception {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/files/{path}", ctx -> {
-                String path = ctx.pathVariables().getRaw("path");
+                String path = ctx.pathVariables().get("path");
                 return ResponseEntity.ok(Map.of("path", path));
             })
             .build();
@@ -287,7 +286,7 @@ class HttpServerPathVariablesTest {
     void testQueryParamsAndPathVariablesTogether() throws Exception {
         MagnesiumHttpServer httpServer = MagnesiumHttpServer.builder()
             .get("/users/{id}/search", ctx -> {
-                String userId = ctx.pathVariables().getRaw("id");
+                String userId = ctx.pathVariables().get("id");
                 String query = ctx.queryParam("q");
                 return ResponseEntity.ok(Map.of(
                     "userId", userId,
