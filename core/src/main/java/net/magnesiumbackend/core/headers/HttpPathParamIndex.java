@@ -90,6 +90,8 @@ public final class HttpPathParamIndex implements Iterable<HttpPathParamIndex.Ent
     }
 
     private static int hash(Slice slice) {
+        if (slice == null) return 0;
+
         byte[] data = slice.src();
         int off = slice.start();
         int len = slice.length();

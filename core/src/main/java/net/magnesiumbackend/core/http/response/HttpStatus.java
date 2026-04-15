@@ -45,12 +45,11 @@ public enum HttpStatus {
     private final int code;
     private final String reason;
 
-    private static final java.util.Map<Integer, HttpStatus> LOOKUP = new java.util.HashMap<>();
+    private static final HttpStatus[] LOOKUP;
+    private static final int MAX_CODE = 504;
 
     static {
-        for (HttpStatus s : values()) {
-            LOOKUP.put(s.code, s);
-        }
+        LOOKUP = values();
     }
 
     HttpStatus(int code, String reason) {
@@ -75,11 +74,17 @@ public enum HttpStatus {
     }
 
     public static HttpStatus resolve(int code) {
-        return LOOKUP.get(code);
+        if (code < 0 || code > MAX_CODE) {
+            throw new IllegalArgumentException("Unknown HTTP status: " + code);
+        }
+        return LOOKUP[code];
     }
 
     public static HttpStatus require(int code) {
-        HttpStatus status = LOOKUP.get(code);
+        if (code < 0 || code > MAX_CODE) {
+            throw new IllegalArgumentException("Unknown HTTP status: " + code);
+        }
+        HttpStatus status = LOOKUP[code];
         if (status == null) {
             throw new IllegalArgumentException("Unknown HTTP status: " + code);
         }

@@ -63,10 +63,6 @@ public final class BoundedBackpressureExecutor implements Executor {
         this.slots    = new ArrayBlockingQueue<>(config.queueCapacity());
     }
 
-    // -------------------------------------------------------------------------
-    // Executor contract
-    // -------------------------------------------------------------------------
-
     /**
      * Submits a task to the delegate executor if a queue slot is available.
      *
@@ -75,7 +71,6 @@ public final class BoundedBackpressureExecutor implements Executor {
      */
     @Override
     public void execute(@NotNull Runnable command) {
-        // Try to claim a slot — non-blocking
         boolean acquired = slots.offer(Boolean.TRUE);
         if (!acquired) {
             rejectedCount.incrementAndGet();
@@ -85,16 +80,11 @@ public final class BoundedBackpressureExecutor implements Executor {
         try {
             delegate.execute(wrap(command));
         } catch (RejectedExecutionException ex) {
-            // The underlying executor itself rejected — release slot and propagate as our error
             slots.poll();
             rejectedCount.incrementAndGet();
             throw new QueueRejectedError(config);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Metrics
-    // -------------------------------------------------------------------------
 
     /** Current number of tasks occupying a queue slot (queued or executing). */
     public int queuedTaskCount() { return slots.size(); }
@@ -107,10 +97,6 @@ public final class BoundedBackpressureExecutor implements Executor {
 
     /** Load factor in [0.0, 1.0]. Values close to 1.0 indicate sustained pressure. */
     public double loadFactor() { return (double) slots.size() / config.queueCapacity(); }
-
-    // -------------------------------------------------------------------------
-    // Internals
-    // -------------------------------------------------------------------------
 
     /**
      * Wraps the task so the slot is released regardless of how the task exits

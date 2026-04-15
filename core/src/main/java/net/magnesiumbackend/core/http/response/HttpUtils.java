@@ -2,10 +2,7 @@ package net.magnesiumbackend.core.http.response;
 
 import net.magnesiumbackend.core.headers.HttpQueryParamIndex;
 
-import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 
 public final class HttpUtils {
     private HttpUtils() {}

@@ -75,16 +75,15 @@ public class MagnesiumHttpHandler implements HttpHandler {
             String uri = exchange.getRequestURI().getRawPath();
             String queryString = exchange.getRequestURI().getRawQuery(); // null if absent
 
-            Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute =
+            RouteTree.RouteMatch<RouteDefinition> matched =
                 httpRouteRegistry.find(method, uri);
 
-            if (matchedRoute.isEmpty()) {
+            if (matched == null) {
                 exchange.sendResponseHeaders(404, NOT_FOUND.length);
                 try (OutputStream os = exchange.getResponseBody()) { os.write(NOT_FOUND); }
                 return;
             }
 
-            RouteTree.RouteMatch<RouteDefinition> matched = matchedRoute.get();
             RouteDefinition definition = matched.handler();
 
             Headers requestHeaders = exchange.getRequestHeaders();

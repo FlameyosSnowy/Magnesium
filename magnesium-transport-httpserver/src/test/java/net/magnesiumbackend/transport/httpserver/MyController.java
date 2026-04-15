@@ -12,12 +12,6 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public class MyController {
 
-    // 1. Just RequestContext (existing behavior)
-    @GetMapping(path = "/hello")
-    public ResponseEntity<String> hello() {
-        return ResponseEntity.ok("Hello, World!");
-    }
-
     // 2. Async method with CompletableFuture
     @GetMapping(path = "/hello")
     public CompletableFuture<ResponseEntity<String>> helloAsync() {

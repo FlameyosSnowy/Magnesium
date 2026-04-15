@@ -34,6 +34,7 @@ import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -151,7 +152,6 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
                 lifecycleRegistrations.add(lifecycleGenerated);
             }
 
-            // Perform final cross-cutting validations
             validator.validateConflictingExceptionHandlers();
             validator.validateFilterChains();
         }
@@ -334,6 +334,38 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         } catch (Exception e) {
             // Ignore reflection errors
         }
+    }
+
+    private List<String> extractFilterChain(ExecutableElement method, TypeElement controllerClass) {
+        List<String> filters = new ArrayList<>();
+
+        // Check method-level @Filter and @Filters
+        Filter methodFilter = method.getAnnotation(Filter.class);
+        if (methodFilter != null) {
+            filters.add(methodFilter.value().getCanonicalName());
+        }
+
+        Filters methodFilters = method.getAnnotation(Filters.class);
+        if (methodFilters != null) {
+            for (Filter f : methodFilters.value()) {
+                filters.add(f.value().getCanonicalName());
+            }
+        }
+
+        // Check class-level @Filter and @Filters (for all methods)
+        Filter classFilter = controllerClass.getAnnotation(Filter.class);
+        if (classFilter != null) {
+            filters.add(classFilter.value().getCanonicalName());
+        }
+
+        Filters classFilters = controllerClass.getAnnotation(Filters.class);
+        if (classFilters != null) {
+            for (Filter f : classFilters.value()) {
+                filters.add(f.value().getCanonicalName());
+            }
+        }
+
+        return filters;
     }
 
     private <T extends Annotation> void validateWebSocketAnnotation(Class<T> annotationClass,

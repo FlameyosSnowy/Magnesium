@@ -10,8 +10,8 @@ public class RouteTree<T> {
 
     private final RouteNode<T> root = new RouteNode<>();
 
-    private volatile List<RouteEntry<T>> cachedEntries = null;
-    private volatile List<RouteDumpEntry<T>> cachedDump = null;
+    private volatile List<RouteEntry<T>>    cachedEntries = null;
+    private volatile List<RouteDumpEntry<T>> cachedDump   = null;
 
     public void register(RoutePathTemplate template, T handler) {
         RouteNode<T> current = root;
@@ -30,7 +30,8 @@ public class RouteTree<T> {
             } else if (varName != null) {
                 current = current.addVariableChild(varName);
             } else {
-                throw new IllegalStateException("Invalid template at index " + i + " for route: " + template.raw());
+                throw new IllegalStateException(
+                    "Invalid template at index " + i + " for route: " + template.raw());
             }
         }
 
@@ -42,85 +43,96 @@ public class RouteTree<T> {
         invalidateCache();
     }
 
-    // ----------------------------
-    // Match
-    // ----------------------------
-
-    public Optional<RouteMatch<T>> match(byte[] pathBytes) {
+    public RouteMatch<T> match(byte[] pathBytes) {
         RouteNode<T> current = root;
 
-        int varCount = 0;
-        Slice[] varNames = null;
+        int varCount  = 0;
+        Slice[] varNames  = null;
         Slice[] varValues = null;
 
-        int start = 0;
+        int pos    = 0;
         int length = pathBytes.length;
 
-        while (start < length) {
+        if (pos < length && pathBytes[pos] == '/') pos++;
 
-            if (pathBytes[start] == '/') {
-                start++;
-                continue;
-            }
+        while (pos < length) {
+            int segStart = pos;
+            while (pos < length && pathBytes[pos] != '/') pos++;
+            int segLen = pos - segStart;
 
-            int end = start;
-            while (end < length && pathBytes[end] != '/') {
-                end++;
-            }
-
-            int segmentLen = end - start;
+            if (pos < length) pos++;
 
             RouteNode<T> next = null;
 
-            Slice segment = new Slice(pathBytes, start, segmentLen);
+            byte firstByte = pathBytes[segStart];
 
-            Slice[] keys = current.staticKeys;
+            Slice[]       keys     = current.staticKeys;
             RouteNode<T>[] children = current.staticChildren;
+            int[]          fbIdx   = current.firstByteIndex;
 
-            int keysLength = keys.length;
-            for (int i = 0; i < keysLength; i++) {
-                Slice key = keys[i];
-                if (key == null) continue;
+            int probe = fbIdx[firstByte & 0xFF];
+            if (probe >= 0) {
+                int keysLen = keys.length;
+                for (int i = probe; i < keysLen; i++) {
+                    Slice key = keys[i];
+                    if (key == null || key.src()[key.start()] != firstByte) break;
 
-                if (equals(key, segment)) {
-                    next = children[i];
-                    break;
+                    if (sliceEqualsSegment(key, pathBytes, segStart, segLen)) {
+                        next = children[i];
+                        break;
+                    }
                 }
             }
 
             if (next != null) {
                 current = next;
             } else if (current.variableChild != null) {
-
                 if (varNames == null) {
-                    varNames = new Slice[4];
-                    varValues = new Slice[4];
+                    varNames  = new Slice[8];
+                    varValues = new Slice[8];
                 } else if (varCount == varNames.length) {
                     int newSize = varNames.length * 2;
-                    varNames = Arrays.copyOf(varNames, newSize);
+                    varNames  = Arrays.copyOf(varNames,  newSize);
                     varValues = Arrays.copyOf(varValues, newSize);
                 }
 
-                varNames[varCount] = current.variableChild.variableName;
-                varValues[varCount] = new Slice(pathBytes, start, segmentLen);
+                varNames[varCount]  = current.variableChild.variableName;
+                varValues[varCount] = new Slice(pathBytes, segStart, segLen);
                 varCount++;
 
                 current = current.variableChild;
+            } else if (current.wildcardChild != null) {
+                throw new UnsupportedOperationException(
+                    "Wildcard routes are not yet supported");
             } else {
-                return Optional.empty();
+                return null; // no match
             }
-
-            start = end;
         }
 
-        if (current.handler == null) return Optional.empty();
+        if (current.handler == null) return null;
 
         HttpPathParamIndex vars =
             varCount == 0
                 ? HttpPathParamIndex.empty()
                 : HttpPathParamIndex.of(varNames, varValues);
 
-        return Optional.of(new RouteMatch<>(current.handler, vars));
+        return new RouteMatch<>(current.handler, vars);
+    }
+
+    private static boolean sliceEqualsSegment(
+        Slice key, byte[] pathBytes, int segStart, int segLen) {
+
+        // hoist all field reads to locals before the loop
+        int keyLen = key.length();
+        if (keyLen != segLen) return false;
+
+        byte[] keySrc    = key.src();
+        int    keyOffset = key.start();
+
+        for (int i = 0; i < keyLen; i++) {
+            if (keySrc[keyOffset + i] != pathBytes[segStart + i]) return false;
+        }
+        return true;
     }
 
     public record RouteMatch<T>(T handler, HttpPathParamIndex pathVariables) {}
@@ -175,71 +187,102 @@ public class RouteTree<T> {
 
     private void invalidateCache() {
         cachedEntries = null;
-        cachedDump = null;
+        cachedDump    = null;
     }
 
     @SuppressWarnings("unchecked")
     public static final class RouteNode<T> {
 
-        private Slice[] staticKeys = new Slice[0];
-        private RouteNode<T>[] staticChildren = (RouteNode<T>[]) new RouteNode[0];
+        Slice[]        staticKeys     = new Slice[0];
+        RouteNode<T>[] staticChildren = (RouteNode<T>[]) new RouteNode[0];
 
-        private RouteNode<T> variableChild;
-        private Slice variableName;
+        int[] firstByteIndex = new int[256];
 
-        private T handler;
+        RouteNode<T> variableChild;
+        Slice        variableName;
 
-        private RouteNode<T> addStaticChild(Slice key) {
+        RouteNode<T> wildcardChild;
+        Slice        wildcardName;
+
+        T handler;
+
+        RouteNode() {
+            Arrays.fill(firstByteIndex, -1);
+        }
+
+        RouteNode<T> addStaticChild(Slice key) {
             int length = staticKeys.length;
             for (int i = 0; i < length; i++) {
-                if (key.equals(staticKeys[i])) {
-                    return staticChildren[i];
-                }
+                if (key.equals(staticKeys[i])) return staticChildren[i];
             }
 
-            int max = Math.max(length + 4, length * 2);
-
-            staticKeys = Arrays.copyOf(staticKeys, max);
-            staticChildren = Arrays.copyOf(staticChildren, max);
+            // grow arrays
+            int newLen = Math.max(length + 4, length == 0 ? 4 : length * 2);
+            staticKeys     = Arrays.copyOf(staticKeys,     newLen);
+            staticChildren = Arrays.copyOf(staticChildren, newLen);
 
             RouteNode<T> child = new RouteNode<>();
-
-            staticKeys[length] = key;
+            staticKeys[length]     = key;
             staticChildren[length] = child;
+
+            insertSorted(length);
 
             return child;
         }
 
-        private RouteNode<T> addVariableChild(Slice name) {
+        /**
+         * Insertion-sort the newly added entry (at logical index {@code newIdx})
+         * into first-byte order and rebuild {@code firstByteIndex}.
+         *
+         * Called only during registration (cold path) — no hot-path cost.
+         */
+        private void insertSorted(int newIdx) {
+            int count = newIdx + 1; // number of live entries after the add
+
+            // insertion-sort the live portion by first byte of key
+            for (int i = count - 1; i > 0; i--) {
+                Slice a = staticKeys[i - 1];
+                Slice b = staticKeys[i];
+                if (a == null || b == null) break;
+                if ((a.src()[a.start()] & 0xFF) <= (b.src()[b.start()] & 0xFF)) break;
+
+                // swap keys
+                staticKeys[i - 1] = b;
+                staticKeys[i]     = a;
+                // swap children
+                RouteNode<T> tmp       = staticChildren[i - 1];
+                staticChildren[i - 1]  = staticChildren[i];
+                staticChildren[i]      = tmp;
+            }
+
+            // rebuild firstByteIndex over the live portion
+            Arrays.fill(firstByteIndex, -1);
+            for (int i = 0; i < count; i++) {
+                Slice k = staticKeys[i];
+                if (k == null) continue;
+                int fb = k.src()[k.start()] & 0xFF;
+                if (firstByteIndex[fb] == -1) firstByteIndex[fb] = i;
+            }
+        }
+
+        RouteNode<T> addVariableChild(Slice name) {
             if (variableChild == null) {
-                variableChild = new RouteNode<>();
+                variableChild          = new RouteNode<>();
                 variableChild.variableName = name;
             }
             return variableChild;
         }
-    }
 
-    private static boolean equals(Slice a, Slice b) {
-        if (a.length() != b.length()) return false;
-
-        byte[] ad = a.src();
-        byte[] bd = b.src();
-
-        int ao = a.start();
-        int bo = b.start();
-        int len = a.length();
-
-        for (int i = 0; i < len; i++) {
-            if (ad[ao + i] != bd[bo + i]) return false;
+        RouteNode<T> addWildcardChild(Slice name) {
+            if (wildcardChild == null) {
+                wildcardChild              = new RouteNode<>();
+                wildcardChild.wildcardName = name;
+            }
+            return wildcardChild;
         }
-
-        return true;
     }
 
-    public record RouteDumpEntry<T>(
-        String path,
-        T handler
-    ) {}
+    public record RouteDumpEntry<T>(String path, T handler) {}
 
     public List<RouteDumpEntry<T>> dump() {
         List<RouteDumpEntry<T>> cached = cachedDump;
@@ -254,16 +297,15 @@ public class RouteTree<T> {
     private void dumpRecursive(
         RouteNode<T> node,
         List<Slice> path,
-        List<RouteDumpEntry<T>> out
-    ) {
+        List<RouteDumpEntry<T>> out) {
+
         if (node.handler != null) {
             out.add(new RouteDumpEntry<>(render(path), node.handler));
         }
 
-        // static routes
-        Slice[] staticKeys = node.staticKeys;
+        Slice[]        staticKeys = node.staticKeys;
+        RouteNode<T>[] children   = node.staticChildren;
         int length = staticKeys.length;
-        RouteNode<T>[] children = node.staticChildren;
         for (int i = 0; i < length; i++) {
             Slice key = staticKeys[i];
             if (key == null) continue;
@@ -273,7 +315,6 @@ public class RouteTree<T> {
             path.removeLast();
         }
 
-        // variable route
         if (node.variableChild != null) {
             path.add(node.variableChild.variableName);
             dumpRecursive(node.variableChild, path, out);
@@ -285,11 +326,9 @@ public class RouteTree<T> {
         if (segments.isEmpty()) return "/";
 
         StringBuilder sb = new StringBuilder(64);
-
         for (Slice s : segments) {
             sb.append('/').append(toString(s));
         }
-
         return sb.toString();
     }
 }

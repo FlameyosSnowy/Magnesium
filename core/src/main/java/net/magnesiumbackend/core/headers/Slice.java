@@ -5,35 +5,99 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.charset.StandardCharsets;
 
-public record Slice(byte[] src, int start, int len) {
+public class Slice implements CharSequence {
+    private final byte[] src;
+    private final int start;
+    private final int len;
 
-    // ----------------------------
-    // Creation
-    // ----------------------------
+    private transient int hash;
+    private transient boolean hashed;
+    private transient String materialized; // Cache for materialize()
+
+    public Slice(byte[] src, int start, int len) {
+        this.src = src;
+        this.start = start;
+        this.len = len;
+    }
 
     @Contract("_ -> new")
     public static @NotNull Slice of(String key) {
         return new Slice(key.getBytes(StandardCharsets.UTF_8), 0, key.length());
     }
 
-    // ----------------------------
-    // Basic access
-    // ----------------------------
+    public byte[] src() {
+        return src;
+    }
 
-    public int length() {
+    public int start() {
+        return start;
+    }
+
+    public int len() {
         return len;
     }
 
     public byte byteAt(int i) {
+        if (i < 0 || i >= len) {
+            throw new IndexOutOfBoundsException();
+        }
         return src[start + i];
     }
 
-    public char charAt(int i) {
-        return (char) (src[start + i] & 255);
+    @Override
+    public int hashCode() {
+        if (hashed) return hash;
+
+        int h = 0x811c9dc5; // FNV-1a
+        int end = start + len;
+
+        byte[] s = src;
+
+        for (int i = start; i < end; i++) {
+            h ^= s[i];
+            h *= 0x01000193;
+        }
+
+        hash = h;
+        hashed = true;
+        return h;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Slice other)) return false;
+        if (other.len != this.len) return false;
+
+        byte[] a = this.src;
+        byte[] b = other.src;
+
+        int i = this.start;
+        int j = other.start;
+        int end = i + len;
+
+        for (; i < end; i++, j++) {
+            if (a[i] != b[j]) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Converts this slice to a String, caching the result.
+     *
+     * <p>First call performs UTF-8 decoding and caches the result.
+     * Subsequent calls return the cached String.</p>
+     *
+     * @return the string representation of this slice
+     */
     public String materialize() {
-        return new String(src, start, len, StandardCharsets.UTF_8);
+        String s = materialized;
+        if (s == null) {
+            s = new String(src, start, len, StandardCharsets.UTF_8);
+            materialized = s;
+        }
+        return s;
     }
 
     public String materializeLowercase() {
@@ -230,5 +294,38 @@ public record Slice(byte[] src, int start, int len) {
 
     public static Slice of(double value) {
         return of(String.valueOf(value));
+    }
+
+    public static Slice of(byte[] bytes) {
+        return new Slice(bytes, 0, bytes.length);
+    }
+
+    // CharSequence
+
+    @Override
+    public int length() {
+        return len;
+    }
+
+    @Override
+    public char charAt(int i) {
+        if (i < 0 || i >= len) {
+            throw new IndexOutOfBoundsException();
+        }
+        return (char) (src[start + i] & 0xFF);
+    }
+
+    @Override
+    public @NotNull CharSequence subSequence(int start, int end) {
+        int newLen = end - start;
+        if (start < 0 || end > len || newLen < 0) {
+            throw new IndexOutOfBoundsException();
+        }
+        return new Slice(src, this.start + start, newLen);
+    }
+
+    @Override
+    public @NotNull String toString() {
+        return materialize();
     }
 }

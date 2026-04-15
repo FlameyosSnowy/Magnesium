@@ -7,7 +7,6 @@ import net.magnesiumbackend.core.route.RouteTree;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Registry for WebSocket routes using unified {@link WebSocketHandler}.
@@ -43,15 +42,15 @@ public class WebSocketRouteRegistry {
         return tree;
     }
 
-    public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(String path) {
+    public RouteTree.RouteMatch<WebSocketHandlerWrapper> match(String path) {
         return tree.match(path.getBytes(StandardCharsets.UTF_8));
     }
 
-    public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(Slice path) {
+    public RouteTree.RouteMatch<WebSocketHandlerWrapper> match(Slice path) {
         return tree.match(path.src());
     }
 
-    public Optional<RouteTree.RouteMatch<WebSocketHandlerWrapper>> match(byte[] path) {
+    public RouteTree.RouteMatch<WebSocketHandlerWrapper> match(byte[] path) {
         return tree.match(path);
     }
 

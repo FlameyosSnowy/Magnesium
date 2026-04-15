@@ -72,17 +72,17 @@ public class MagnesiumTomcatServlet extends HttpServlet {
             ? HttpVersion.HTTP_1_0
             : HttpVersion.HTTP_1_1;
 
-        Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute =
+        RouteTree.RouteMatch<RouteDefinition> matchedRoute =
             httpRouteRegistry.find(method, path);
 
-        if (matchedRoute.isEmpty()) {
+        if (matchedRoute == null) {
             resp.setStatus(404);
             resp.setContentType("application/json");
             resp.getOutputStream().write(NOT_FOUND);
             return;
         }
 
-        RouteDefinition definition = matchedRoute.get().handler();
+        RouteDefinition definition = matchedRoute.handler();
         byte[] body = readBody(req);
         String query = req.getQueryString();
 
@@ -94,7 +94,7 @@ public class MagnesiumTomcatServlet extends HttpServlet {
             version,
             method,
             HttpUtils.parseQueryString(query),
-            matchedRoute.get().pathVariables(),
+            matchedRoute.pathVariables(),
             definition,
             headerIndex
         );

@@ -349,11 +349,11 @@ public class RouteRegistrationGenerator {
         CompiledPathTemplate compiled = CompiledPathTemplate.compile(path);
 
         CodeBlock literalsArray = !isEmptyOrAllNull(compiled.literals())
-            ? buildStringArray(List.of(compiled.literals()))
+            ? buildStringArray(compiled.literals())
             : CodeBlock.of("new String[0]");
 
         CodeBlock varNamesArray = !isEmptyOrAllNull(compiled.varNames())
-            ? buildStringArray(List.of(compiled.varNames()))
+            ? buildStringArray(compiled.varNames())
             : CodeBlock.of("new String[0]");
 
         CodeBlock template = CodeBlock.of(
@@ -385,7 +385,7 @@ public class RouteRegistrationGenerator {
                 "new $T($L, $L, $T.$L)",
                 ClassName.get("net.magnesiumbackend.core.auth", "AuthorizationFilter"),
                 true,
-                buildStringArray(List.of(requires.value())),
+                buildStringArray(requires.value()),
                 ClassName.get("net.magnesiumbackend.core.annotations.enums", "RequiresMode"),
                 requires.mode().name()
             ));
@@ -464,7 +464,7 @@ public class RouteRegistrationGenerator {
             if (hasSyncFilters && hasAsyncFilters) {
                 // Mixed filters with async handler
                 register.addCode(
-                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $L);\n",
+                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $L)",
                     ClassName.get(HttpMethod.class),
                     httpMethod,
                     template,
@@ -475,7 +475,7 @@ public class RouteRegistrationGenerator {
             } else if (hasSyncFilters) {
                 // Only sync filters with async handler - they'll be adapted
                 register.addCode(
-                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $T.of());\n",
+                    "routeRegistry.registerMixedAsync($T.$L, $L, $L, $L, $T.of())",
                     ClassName.get(HttpMethod.class),
                     httpMethod,
                     template,
@@ -486,7 +486,7 @@ public class RouteRegistrationGenerator {
             } else if (hasAsyncFilters) {
                 // Only async filters with async handler
                 register.addCode(
-                    "routeRegistry.registerAsync($T.$L, $L, $L, $L);\n",
+                    "routeRegistry.registerAsync($T.$L, $L, $L, $L)",
                     ClassName.get(HttpMethod.class),
                     httpMethod,
                     template,
@@ -496,7 +496,7 @@ public class RouteRegistrationGenerator {
             } else {
                 // No filters, pure async
                 register.addCode(
-                    "routeRegistry.registerAsync($T.$L, $L, $L, $T.of());\n",
+                    "routeRegistry.registerAsync($T.$L, $L, $L, $T.of())",
                     ClassName.get(HttpMethod.class),
                     httpMethod,
                     template,
@@ -508,7 +508,7 @@ public class RouteRegistrationGenerator {
             if (hasSyncFilters && hasAsyncFilters) {
                 // Mixed filters with sync handler
                 register.addCode(
-                    "routeRegistry.registerMixed($T.$L, $L, $L, $L, $L);\n",
+                    "routeRegistry.registerMixed($T.$L, $L, $L, $L, $L)",
                     ClassName.get(HttpMethod.class),
                     httpMethod,
                     template,
@@ -576,11 +576,12 @@ public class RouteRegistrationGenerator {
         syncFilters.add(CodeBlock.of("new $T()", ClassName.get(filterClass)));
     }
 
-    private static CodeBlock buildStringArray(List<String> values) {
+    private static CodeBlock buildStringArray(String[] values) {
         CodeBlock.Builder builder = CodeBlock.builder().add("new String[] { ");
-        for (int i = 0; i < values.size(); i++) {
-            builder.add("$S", values.get(i));
-            if (i < values.size() - 1) builder.add(", ");
+        int length = values.length;
+        for (int i = 0; i < length; i++) {
+            builder.add("$S", values[i]);
+            if (i < length - 1) builder.add(", ");
         }
         return builder.add(" }").build();
     }
@@ -596,7 +597,7 @@ public class RouteRegistrationGenerator {
 
     private @NotNull CodeBlock createLambda(ExecutableElement method, boolean returnsResponse, boolean isAsync, String varName) {
         CodeBlock.Builder b = CodeBlock.builder();
-        b.add("request -> {\n");
+        b.add("request -> {\n").indent();
 
         List<? extends VariableElement> params = method.getParameters();
         List<String> argNames = new ArrayList<>(params.size());
@@ -661,9 +662,9 @@ public class RouteRegistrationGenerator {
                 if (types.isAssignable(t, stringTypeElement.asType())) {
                     b.addStatement("$T $N = $N", tn, argName, rawPathVar);
                 } else if (types.isAssignable(t, integerTypeElement.asType()) || t.getKind() == TypeKind.INT) {
-                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, rawPathVar, tn, rawPathVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, rawPathVar, ClassName.get(Integer.class), rawPathVar);
                 } else if (types.isAssignable(t, longTypeElement.asType()) || t.getKind() == TypeKind.LONG) {
-                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, rawPathVar, tn, rawPathVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, rawPathVar, ClassName.get(Long.class), rawPathVar);
                 } else if (uuidTypeElement != null && types.isAssignable(t, uuidTypeElement.asType())) {
                     b.addStatement("$T $N = $N != null ? $T.fromString($N) : null", tn, argName, rawPathVar, tn, rawPathVar);
                 } else {
@@ -717,13 +718,13 @@ public class RouteRegistrationGenerator {
                 if (types.isAssignable(t, stringTypeElement.asType())) {
                     b.addStatement("$T $N = $N", tn, argName, queryValueVar);
                 } else if (types.isAssignable(t, integerTypeElement.asType()) || t.getKind() == TypeKind.INT) {
-                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, queryValueVar, tn, queryValueVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseInt($N) : 0", tn, argName, queryValueVar, ClassName.get(Integer.class), queryValueVar);
                 } else if (types.isAssignable(t, longTypeElement.asType()) || t.getKind() == TypeKind.LONG) {
-                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, queryValueVar, tn, queryValueVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseLong($N) : 0L", tn, argName, queryValueVar, ClassName.get(Long.class), queryValueVar);
                 } else if (types.isAssignable(t, booleanTypeElement.asType()) || t.getKind() == TypeKind.BOOLEAN) {
-                    b.addStatement("$T $N = $N != null ? $T.parseBoolean($N) : false", tn, argName, queryValueVar, tn, queryValueVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseBoolean($N) : false", tn, argName, queryValueVar, ClassName.get(Boolean.class), queryValueVar);
                 } else if (types.isAssignable(t, doubleTypeElement.asType()) || t.getKind() == TypeKind.DOUBLE) {
-                    b.addStatement("$T $N = $N != null ? $T.parseDouble($N) : 0.0", tn, argName, queryValueVar, tn, queryValueVar);
+                    b.addStatement("$T $N = $N != null ? $T.parseDouble($N) : 0.0", tn, argName, queryValueVar, ClassName.get(Double.class), queryValueVar);
                 } else if (uuidTypeElement != null && types.isAssignable(t, uuidTypeElement.asType())) {
                     b.addStatement("$T $N = $N != null ? $T.fromString($N) : null", tn, argName, queryValueVar, tn, queryValueVar);
                 } else {
@@ -756,9 +757,10 @@ public class RouteRegistrationGenerator {
             if (i < argNames.size() - 1) args.add(", ");
         }
 
-        if (method.getReturnType().getKind() == TypeKind.VOID) {
+        TypeMirror returnType = method.getReturnType();
+        if (returnType.getKind() == TypeKind.VOID) {
             b.addStatement("$L.$L($L)", varName, method.getSimpleName(), args.build());
-            b.addStatement("return $T.ok()", ClassName.get("net.magnesiumbackend.core.http", "ResponseEntity"));
+            b.addStatement("return $T.ok()", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
         } else if (isAsync) {
             // For async methods (CompletableFuture), return directly - transport will handle appropriately
             b.addStatement("return $L.$L($L)", varName, method.getSimpleName(), args.build());
@@ -770,7 +772,7 @@ public class RouteRegistrationGenerator {
             b.addStatement("return $T.ok(result)", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
         }
 
-        b.add("}\n");
+        b.unindent().add("}");
         return b.build();
     }
 
@@ -845,13 +847,33 @@ public class RouteRegistrationGenerator {
                 continue;
             }
 
+            // Check for @PathParam - allowed with primitives and String
+            PathParam pathParam = param.getAnnotation(PathParam.class);
+            if (pathParam != null) {
+                if (!isValidPathParamType(t)) {
+                    error("@PathParam must be String, or a primitive type (byte, short, int, long, float, double, boolean, char), or their wrapper types.", param);
+                    return false;
+                }
+                continue;
+            }
+
+            // Check for @QueryParam - allowed with primitives and String
+            QueryParam queryParam = param.getAnnotation(QueryParam.class);
+            if (queryParam != null) {
+                if (!isValidQueryParamType(t)) {
+                    error("@QueryParam must be String, or a primitive type (byte, short, int, long, float, double, boolean, char), or their wrapper types.", param);
+                    return false;
+                }
+                continue;
+            }
+
             // Un-annotated non-RequestContext param => treat as request body
             if (seenBody) {
-                error("@" + httpMethod + "Route method may only have one request body parameter (non-RequestContext, without @RequestHeader).", param);
+                error("@" + httpMethod + "Route method may only have one request body parameter (non-RequestContext, without @RequestHeader, @PathParam, or @QueryParam).", param);
                 return false;
             }
             if (!isJsonConvertible(t)) {
-                error("A @" + httpMethod + "Route method parameter must be RequestContext, @RequestHeader, or a type JsonProvider can deserialize from the request body.", param);
+                error("A @" + httpMethod + "Route method parameter must be RequestContext, @RequestHeader, @PathParam, @QueryParam, or a type JsonProvider can deserialize from the request body.", param);
                 return false;
             }
             if (!isErasedToConcreteClassLiteral(t)) {
@@ -862,6 +884,29 @@ public class RouteRegistrationGenerator {
         }
 
         return true;
+    }
+
+    private boolean isValidPathParamType(TypeMirror t) {
+        // Allow primitives
+        if (t.getKind().isPrimitive()) {
+            return true;
+        }
+        // Allow String
+        if (types.isAssignable(t, stringTypeElement.asType())) {
+            return true;
+        }
+        // Allow wrapper types
+        String typeName = t.toString();
+        return switch (typeName) {
+            case "java.lang.Byte", "java.lang.Short", "java.lang.Integer", "java.lang.Long",
+                 "java.lang.Float", "java.lang.Double", "java.lang.Boolean", "java.lang.Character", "java.util.UUID" -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isValidQueryParamType(TypeMirror t) {
+        // Same validation as PathParam for now
+        return isValidPathParamType(t);
     }
 
     private boolean isErasedToConcreteClassLiteral(TypeMirror t) {

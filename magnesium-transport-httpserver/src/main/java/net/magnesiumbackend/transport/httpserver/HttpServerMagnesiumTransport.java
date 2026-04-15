@@ -80,14 +80,12 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
 
             server.createContext(contextPath, exchange -> {
 
-                String requestPath = exchange.getRequestURI().getPath();
+                String requestPath = exchange.getRequestURI().getRawPath();
 
-                HttpPathParamIndex pathVars =
-                    wsRegistry
-                        .tree()
-                        .match(requestPath.getBytes(StandardCharsets.UTF_8))
-                        .map(RouteTree.RouteMatch::pathVariables)
-                        .orElse(HttpPathParamIndex.empty());
+                RouteTree.RouteMatch<WebSocketHandlerWrapper> match = wsRegistry
+                    .tree()
+                    .match(requestPath.getBytes(StandardCharsets.UTF_8));
+                HttpPathParamIndex pathVars = match == null ? HttpPathParamIndex.empty() : match.pathVariables();
 
                 HttpServerWebSocketHandler webSocketHandler =
                     new HttpServerWebSocketHandler(

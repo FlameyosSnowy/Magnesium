@@ -133,7 +133,7 @@ public final class HttpHeaderIndex {
 
     public Slice get(String name) {
         int id = HeaderResolver.resolveString(name);
-        if (id >= 0) return headersById[id];
+        if (id >= 0 && id < headersById.length) return headersById[id];
         return fallback.get(name.toLowerCase());
     }
 
@@ -194,7 +194,7 @@ public final class HttpHeaderIndex {
             while (++index < length) {
                 Slice v = headersById[index];
                 if (v != null) {
-                    currentName = Slice.of(HeaderRegistry.nameOf(index)); // assumes reverse mapping exists
+                    currentName = Slice.of(HeaderRegistry.nameOf(index));
                     currentValue = v;
                     return true;
                 }

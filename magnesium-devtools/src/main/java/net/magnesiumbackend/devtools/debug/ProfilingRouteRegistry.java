@@ -33,19 +33,17 @@ public record ProfilingRouteRegistry(HttpRouteRegistry delegate) {
         delegate.register(method, template, handler, filters);
     }
 
-    public Optional<RouteTree.RouteMatch<RouteDefinition>> find(HttpMethod method, String path) {
+    public RouteTree.RouteMatch<RouteDefinition> find(HttpMethod method, String path) {
         if (!MagnesiumDebugger.isEnabled()) {
             return delegate.find(method, path);
         }
 
         long start = System.nanoTime();
         try {
-            Optional<RouteTree.RouteMatch<RouteDefinition>> result = delegate.find(method, path);
+            RouteTree.RouteMatch<RouteDefinition> result = delegate.find(method, path);
 
             long nanos = System.nanoTime() - start;
-            String pattern = result
-                .map(_ -> method + " " + path)
-                .orElse(method + " " + path + " [NOT_FOUND]");
+            String pattern = result != null ? method + " " + path : method + " " + path + " [NOT_FOUND]";
             MagnesiumDebugger.routeMatched(pattern, nanos);
 
             return result;

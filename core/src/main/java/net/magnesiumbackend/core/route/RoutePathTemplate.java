@@ -147,6 +147,7 @@ package net.magnesiumbackend.core.route;
 import net.magnesiumbackend.core.headers.Slice;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -180,6 +181,40 @@ public final class RoutePathTemplate {
             if (v != null) count++;
         }
         this.variableCount = count;
+    }
+
+    public static RoutePathTemplate precompiled(
+        String template,
+        String[] literals,
+        String[] varNames) {
+
+        if (literals.length != varNames.length) {
+            throw new IllegalArgumentException(
+                "literals and varNames arrays must have equal length for: " + template);
+        }
+
+        byte[] templateBytes = template.getBytes(StandardCharsets.UTF_8);
+        Slice raw = new Slice(templateBytes, 0, templateBytes.length);
+
+        Slice[] literalSlices = new Slice[literals.length];
+        Slice[] varNameSlices = new Slice[varNames.length];
+
+        for (int i = 0; i < literals.length; i++) {
+            if (literals[i] != null) {
+                byte[] b = literals[i].getBytes(StandardCharsets.UTF_8);
+                literalSlices[i] = new Slice(b, 0, b.length);
+            }
+            if (varNames[i] != null) {
+                byte[] b = varNames[i].getBytes(StandardCharsets.UTF_8);
+                varNameSlices[i] = new Slice(b, 0, b.length);
+            }
+        }
+
+        return new RoutePathTemplate(raw, literalSlices, varNameSlices, literals.length);
+    }
+
+    public static RoutePathTemplate compile(String template) {
+        return compile(template.getBytes());
     }
 
     public static RoutePathTemplate compile(byte[] templateBytes) {

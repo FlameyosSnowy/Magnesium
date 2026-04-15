@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +33,10 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Http2ServerHandler.class);
     private static final byte[] EMPTY = new byte[0];
+    private static final byte[] NOT_FOUND_BYTES = "Not Found".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] SERVER_ERROR_BYTES = "Internal Server Error".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] OVERLOADED_BYTES = "Overloaded".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] TIMEOUT_BYTES = "Timeout".getBytes(StandardCharsets.UTF_8);
 
     private final HttpRouteRegistry routes;
     private final List<HttpFilter> filters;
@@ -100,28 +105,28 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
 
     private void handle(ChannelHandlerContext ctx, Http2HeadersFrame frame, byte[] body) {
 
-        Http2Headers h = frame.headers();
+        Http2Headers http2Headers = frame.headers();
 
-        Slice pathSlice = NettySlices.of(h.path());
+        Slice pathSlice = NettySlices.of(http2Headers.path());
 
         int qIndex = indexOf(pathSlice, (byte) '?');
         Slice path = qIndex >= 0
             ? new Slice(pathSlice.src(), pathSlice.start(), qIndex)
             : pathSlice;
 
-        HttpMethod method = asMagnesiumMethod(h.method());
+        HttpMethod method = asMagnesiumMethod(http2Headers.method());
 
-        Optional<RouteTree.RouteMatch<RouteDefinition>> match =
+        RouteTree.RouteMatch<RouteDefinition> match =
             routes.find(method, path);
 
-        if (match.isEmpty()) {
-            sendError(ctx, 404, "Not Found");
+        if (match == null) {
+            sendError(ctx, 404, NOT_FOUND_BYTES);
             return;
         }
 
-        RouteDefinition def = match.get().handler();
+        RouteDefinition def = match.handler();
 
-        HttpHeaderIndex headers = NettyHeaderAdapter.from(h);
+        HttpHeaderIndex headers = NettyHeaderAdapter.from(http2Headers, ctx.alloc());
 
         HttpQueryParamIndex query = HttpUtils.parseQueryString(pathSlice.src());
 
@@ -131,7 +136,7 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
             HttpVersion.HTTP_2_0,
             method,
             query,
-            match.get().pathVariables(),
+            match.pathVariables(),
             def,
             headers
         );
@@ -151,10 +156,10 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
 
                     if (err != null) {
                         if (err instanceof java.util.concurrent.TimeoutException) {
-                            sendError(ctx, 408, "Timeout");
+                            sendError(ctx, 408, TIMEOUT_BYTES);
                         } else {
                             LOGGER.error("HTTP/2 failure", err);
-                            sendError(ctx, 500, "Error");
+                            sendError(ctx, 500, SERVER_ERROR_BYTES);
                         }
                         return;
                     }
@@ -167,7 +172,7 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
                 });
 
         } catch (QueueRejectedError rejected) {
-            sendError(ctx, 503, "Overloaded");
+            sendError(ctx, 503, OVERLOADED_BYTES);
         }
     }
 
@@ -182,10 +187,7 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
         return -1;
     }
 
-    private void sendError(ChannelHandlerContext ctx, int status, String msg) {
-
-        byte[] body = msg.getBytes();
-
+    private void sendError(ChannelHandlerContext ctx, int status, byte[] body) {
         Http2Headers headers = new DefaultHttp2Headers()
             .status(String.valueOf(status))
             .setInt("content-length", body.length);
@@ -209,8 +211,10 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
                 headers.set("x-correlation-id", corr.materialize());
             }
 
-            for (var e : entity.headers().entrySet()) {
-                headers.set(e.getKey(), e.getValue());
+            HttpHeaderIndex headerIndex = entity.headers();
+            HttpHeaderIndex.Iterator iterator = headerIndex.iterator();
+            while (iterator.next()) {
+                headers.set(iterator.nameSlice(), iterator.valueSlice());
             }
 
             byte[] body = new HttpResponseWriter(converters).toBytes(entity);
@@ -225,7 +229,7 @@ public class Http2ServerHandler extends SimpleChannelInboundHandler<Http2StreamF
 
         } catch (Exception e) {
             LOGGER.error("response failure", e);
-            sendError(ctx, 500, "Error");
+            sendError(ctx, 500, SERVER_ERROR_BYTES);
         }
     }
 }

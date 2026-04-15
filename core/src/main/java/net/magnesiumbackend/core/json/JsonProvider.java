@@ -1,9 +1,11 @@
 package net.magnesiumbackend.core.json;
 
+import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.http.Request;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -21,6 +23,8 @@ import java.util.Map;
  * }</pre>
  */
 public interface JsonProvider {
+
+    HttpHeaderIndex HEADERS = new HttpHeaderIndex(Map.of("Content-Type", List.of("application/json")));
 
     /**
      * Serialises {@code value} to a JSON string.
@@ -98,7 +102,7 @@ public interface JsonProvider {
         return ResponseEntity.of(
             200,
             toJsonBytes(value),
-            java.util.Map.of("Content-Type", "application/json")
+            HEADERS
         );
     }
 

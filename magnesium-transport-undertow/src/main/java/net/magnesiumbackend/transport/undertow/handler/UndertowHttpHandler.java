@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executor;
 
 public class UndertowHttpHandler implements HttpHandler {
@@ -90,16 +89,14 @@ public class UndertowHttpHandler implements HttpHandler {
             String path = exchange.getRequestPath();
             HttpVersion version = exchange.isHttp11() ? HttpVersion.HTTP_1_1 : HttpVersion.HTTP_1_0;
 
-            Optional<RouteTree.RouteMatch<RouteDefinition>> matchedRoute = httpRouteRegistry.find(method, path);
+            RouteTree.RouteMatch<RouteDefinition> matched = httpRouteRegistry.find(method, path);
 
-            if (matchedRoute.isEmpty()) {
+            if (matched == null) {
                 exchange.setStatusCode(404);
                 exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                 exchange.getResponseSender().send(NOT_FOUND);
                 return;
             }
-
-            RouteTree.RouteMatch<RouteDefinition> matched = matchedRoute.get();
             RouteDefinition definition = matched.handler();
 
             byte[] body = readBody(exchange);
@@ -180,15 +177,13 @@ public class UndertowHttpHandler implements HttpHandler {
 
     private void handleWebSocketUpgrade(HttpServerExchange exchange) {
         String path = exchange.getRequestPath();
-        var match = webSocketRouteRegistry.match(path);
+        var matched = webSocketRouteRegistry.match(path);
 
-        if (match.isEmpty()) {
+        if (matched == null) {
             exchange.setStatusCode(404);
             exchange.getResponseSender().send("No WebSocket route: " + path);
             return;
         }
-
-        var matched = match.get();
 
         UndertowWebSocketCallback callback = new UndertowWebSocketCallback(
             matched.handler(),

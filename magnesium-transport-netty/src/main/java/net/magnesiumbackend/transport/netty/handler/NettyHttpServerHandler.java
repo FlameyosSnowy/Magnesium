@@ -76,22 +76,21 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 
         String path = qIndex > 0 ? uri.substring(0, qIndex) : uri;
 
-        Optional<RouteTree.RouteMatch<RouteDefinition>> match =
+        RouteTree.RouteMatch<RouteDefinition> matched =
             httpRouteRegistry.find(method, path);
 
-        if (match.isEmpty()) {
+        if (matched == null) {
             writeNotFound(ctx, req);
             return;
         }
 
-        var matched = match.get();
         RouteDefinition def = matched.handler();
 
         ByteBuf content = req.content();
         byte[] body = ByteBufUtil.getBytes(content);
-        HttpQueryParamIndex queryParams = HttpUtils.parseQueryString(body);
+        HttpQueryParamIndex queryParams = HttpUtils.parseQueryString(req.uri());
 
-        HttpHeaderIndex headers = NettyHeaderAdapter.from(req.headers());
+        HttpHeaderIndex headers = NettyHeaderAdapter.from(req.headers(), ctx.alloc());
         Request request = new DefaultRequest(
             def.path(),
             body,
