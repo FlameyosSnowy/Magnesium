@@ -6,7 +6,7 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.annotations.Subscribe;
 import net.magnesiumbackend.core.annotations.enums.EventPriority;
 import net.magnesiumbackend.core.annotations.service.GeneratedSubscriberClass;
@@ -57,7 +57,7 @@ import java.util.List;
  *         implements GeneratedSubscriberClass {
  *
  *     @Override
- *     public void register(MagnesiumApplication application,
+ *     public void register(MagnesiumRuntime application,
  *                          ServiceRegistry serviceRegistry,
  *                          SubscribeRegistry subscribeRegistry) {
  *         UserEventListeners __listener =
@@ -133,7 +133,7 @@ public class SubscribeRegistrationGenerator {
         MethodSpec.Builder register = MethodSpec.methodBuilder("register")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(MagnesiumApplication.class, "application")
+            .addParameter(MagnesiumRuntime.class, "application")
             .addParameter(ServiceRegistry.class, "serviceRegistry")
             .addParameter(SubscribeRegistry.class, "subscribeRegistry")
             .returns(void.class);
@@ -201,7 +201,7 @@ public class SubscribeRegistrationGenerator {
         MethodSpec.Builder register = MethodSpec.methodBuilder("register")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(MagnesiumApplication.class, "application")
+            .addParameter(MagnesiumRuntime.class, "application")
             .addParameter(ServiceRegistry.class, "serviceRegistry")
             .addParameter(SubscribeRegistry.class, "subscribeRegistry")
             .returns(void.class);

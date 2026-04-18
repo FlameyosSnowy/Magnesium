@@ -9,6 +9,7 @@ module core {
     uses net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
     uses net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
     uses net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
+    uses net.magnesiumbackend.core.annotations.service.GeneratedServiceClass;
     uses net.magnesiumbackend.core.json.JsonProvider;
 
     requires io.github.flameyossnowy.velocis;
@@ -19,6 +20,8 @@ module core {
     requires java.desktop;
     requires org.bouncycastle.pkix;
     requires org.bouncycastle.provider;
+    requires java.net.http;
+    requires org.junit.jupiter.api;
 
     exports net.magnesiumbackend.core;
     exports net.magnesiumbackend.core.annotations;

@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.annotations.service;
 
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 import net.magnesiumbackend.core.services.ServiceRegistry;
 
@@ -43,5 +43,5 @@ public interface GeneratedRouteRegistrationClass {
      * @param serviceRegistry   used to resolve controller constructor dependencies
      * @param httpRouteRegistry destination for route registrations
      */
-    void register(MagnesiumApplication application, ServiceRegistry serviceRegistry, HttpRouteRegistry httpRouteRegistry);
+    void register(MagnesiumRuntime application, ServiceRegistry serviceRegistry, HttpRouteRegistry httpRouteRegistry);
 }

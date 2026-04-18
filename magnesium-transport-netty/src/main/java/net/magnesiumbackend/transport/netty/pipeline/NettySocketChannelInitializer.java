@@ -8,7 +8,7 @@ import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketServerCompressionHandler;
 import io.netty.handler.ssl.SslContext;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.messages.MessageConverterRegistry;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
@@ -24,10 +24,17 @@ public class NettySocketChannelInitializer extends ChannelInitializer<SocketChan
     private final WebSocketRouteRegistry webSocketRouteRegistry;
     private final ExceptionHandlerRegistry exceptionHandlerRegistry;
     private final MessageConverterRegistry messageConverterRegistry;
-    private final MagnesiumApplication application;
+    private final MagnesiumRuntime application;
     private final @Nullable SslConfig sslConfig;
 
-    public NettySocketChannelInitializer(HttpRouteRegistry httpRouteRegistry, WebSocketRouteRegistry webSocketRouteRegistry, ExceptionHandlerRegistry exceptionHandlerRegistry, MessageConverterRegistry messageConverterRegistry, MagnesiumApplication application, @Nullable SslConfig sslConfig) {
+    public NettySocketChannelInitializer(
+        HttpRouteRegistry httpRouteRegistry,
+        WebSocketRouteRegistry webSocketRouteRegistry,
+        ExceptionHandlerRegistry exceptionHandlerRegistry,
+        MessageConverterRegistry messageConverterRegistry,
+        MagnesiumRuntime application,
+        @Nullable SslConfig sslConfig
+    ) {
         this.httpRouteRegistry = httpRouteRegistry;
         this.webSocketRouteRegistry = webSocketRouteRegistry;
         this.exceptionHandlerRegistry = exceptionHandlerRegistry;
@@ -55,7 +62,7 @@ public class NettySocketChannelInitializer extends ChannelInitializer<SocketChan
         pipeline.addLast(new WebSocketServerCompressionHandler(0));
         pipeline.addLast(new NettyHttpServerHandler(
             httpRouteRegistry,
-            application.httpServer().globalFilters(),
+            application.router().globalFilters(),
             application.exceptionHandlerRegistry(),
             application.messageConverterRegistry(),
             application.securityHeadersFilter(),

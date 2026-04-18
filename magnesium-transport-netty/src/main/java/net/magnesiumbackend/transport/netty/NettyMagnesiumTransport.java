@@ -5,7 +5,7 @@ import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.SslContext;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.http.TransportExecutionModel;
@@ -32,30 +32,30 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
     private Channel channel;
 
     @Override
-    public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
+    public void bind(int port, MagnesiumRuntime runtime, HttpRouteRegistry routes) {
         bossGroup  = new MultiThreadIoEventLoopGroup(newFactory());
         workerGroup = new MultiThreadIoEventLoopGroup(newFactory());
 
-        SslConfig  sslConfig = application.sslConfig();
+        SslConfig  sslConfig = runtime.sslConfig();
         SslContext nettyCtx  = buildSslContext(sslConfig);
 
         // When BackpressureConfig is present this returns a BoundedBackpressureExecutor
         // wrapping the user's executor. Otherwise, it returns the raw executor unchanged.
         // NettyPipelineFactory (and ultimately NettyHttpServerHandler) receive this
         // executor, no other transport code needs to know about backpressure.
-        Executor requestExecutor = BackpressureExecutorResolver.resolve(application);
+        Executor requestExecutor = BackpressureExecutorResolver.resolve(runtime);
 
         NettyPipelineFactory factory = new NettyPipelineFactory(
             routes,
-            application.httpServer().globalFilters(),
-            application.exceptionHandlerRegistry(),
-            application.messageConverterRegistry(),
-            application.httpServer().webSocketRouteRegistry(),
-            application.httpServer().webSocketSessionManager(),
+            runtime.router().globalFilters(),
+            runtime.exceptionHandlerRegistry(),
+            runtime.messageConverterRegistry(),
+            runtime.router().webSocketRouteRegistry(),
+            runtime.router().webSocketSessionManager(),
             sslConfig,
-            application.securityHeadersFilter(),
+            runtime.securityHeadersFilter(),
             requestExecutor,
-            application.defaultTimeout()
+            runtime.defaultTimeout()
         );
 
         try {
@@ -69,14 +69,27 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
                     }
                 });
 
+            try {
+                runtime.application().start(runtime);
+            } catch (Exception e) {
+                throw new IllegalStateException("Application failed during start()", e);
+            }
+
             this.channel = bootstrap.bind(port).sync().channel();
             LOGGER.info("[Magnesium] Netty listening on port {} ({})",
                 port, sslConfig != null ? "HTTPS" : "HTTP");
 
-            application.onStart().accept(application.serviceRegistry());
-            application.shutdownLatch().await();
-            channel.close().sync();
-
+            try {
+                try {
+                    runtime.application().ready(runtime, getPort());
+                } catch (Exception e) {
+                    throw new RuntimeException("[Magnesium] Netty transport interrupted by an error from Application#ready.", e);
+                }
+                runtime.shutdownLatch().await();
+                channel.close().sync();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("[Magnesium] Netty transport interrupted.", e);

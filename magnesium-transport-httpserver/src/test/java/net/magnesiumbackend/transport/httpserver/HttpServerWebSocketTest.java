@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.headers.HttpHeaderIndex;
 import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
@@ -34,7 +35,7 @@ class HttpServerWebSocketTest {
     private static final String WEBSOCKET_MAGIC_STRING = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
     private HttpServerMagnesiumTransport transport;
-    private MagnesiumApplication application;
+    private MagnesiumRuntime application;
     private int actualPort;
 
     @BeforeEach
@@ -60,17 +61,17 @@ class HttpServerWebSocketTest {
             .get("/health", ctx -> ResponseEntity.ok(Map.of("status", "up")))
             .build();
 
-        application = MagnesiumApplication.builder()
-            .http(http -> http.server(httpServer))
-            .onStart(ctx -> latch.countDown())
-            .onExit(ctx -> {})
-            .build();
+        application = new MagnesiumRuntime(null);
+        application.router()
+            .websocket(path, handler)
+            .get("/health", ctx -> ResponseEntity.ok(Map.of("status", "up")))
+                .commit();
 
         transport = new HttpServerMagnesiumTransport();
 
         Thread serverThread = new Thread(() -> {
             try {
-                transport.bind(0, application, application.httpServer().routes());
+                transport.bind(0, application, application.router().routes());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

@@ -6,7 +6,7 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.annotations.ConnectMapping;
 import net.magnesiumbackend.core.annotations.DeleteMapping;
 import net.magnesiumbackend.core.annotations.GetMapping;
@@ -116,7 +116,7 @@ public class RouteRegistrationGenerator {
         MethodSpec.Builder register = MethodSpec.methodBuilder("register")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(MagnesiumApplication.class, "application")
+            .addParameter(MagnesiumRuntime.class, "application")
             .addParameter(ServiceRegistry.class, "serviceRegistry")
             .addParameter(HttpRouteRegistry.class, "routeRegistry")
             .returns(void.class);

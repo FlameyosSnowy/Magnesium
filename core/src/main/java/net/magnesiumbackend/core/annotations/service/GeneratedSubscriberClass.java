@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.annotations.service;
 
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.services.ServiceRegistry;
 import net.magnesiumbackend.core.event.SubscribeRegistry;
 
@@ -25,7 +25,7 @@ public interface GeneratedSubscriberClass {
      * @param subscribeRegistry destination services for the listener entries
      */
     void register(
-        MagnesiumApplication application,
+        MagnesiumRuntime application,
         ServiceRegistry      serviceRegistry,
         SubscribeRegistry    subscribeRegistry
     );

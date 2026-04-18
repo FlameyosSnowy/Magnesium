@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.tomcat;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
@@ -31,11 +32,11 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
     private Tomcat tomcat;
 
     @Override
-    public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
+    public void bind(int port, MagnesiumRuntime runtime, HttpRouteRegistry routes) {
         tomcat = new Tomcat();
         tomcat.setBaseDir(System.getProperty("java.io.tmpdir"));
 
-        SslConfig sslConfig = application.sslConfig();
+        SslConfig sslConfig = runtime.sslConfig();
         Connector connector = new Connector();
         connector.setPort(port);
 
@@ -57,7 +58,7 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
 
         tomcat.getService().addConnector(connector);
 
-        Executor executor = BackpressureExecutorResolver.resolve(application);
+        Executor executor = BackpressureExecutorResolver.resolve(runtime);
         tomcat.getConnector().getProtocolHandler().setExecutor(executor);
 
         Context context = tomcat.addContext("", new File(".").getAbsolutePath());
@@ -66,23 +67,33 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
 
         MagnesiumTomcatServlet servlet = new MagnesiumTomcatServlet(
             routes,
-            application.httpServer().globalFilters(),
-            application.exceptionHandlerRegistry(),
-            application.messageConverterRegistry(),
-            application.securityHeadersFilter(),
+            runtime.router().globalFilters(),
+            runtime.exceptionHandlerRegistry(),
+            runtime.messageConverterRegistry(),
+            runtime.securityHeadersFilter(),
             executor,
-            application.defaultTimeout()
+            runtime.defaultTimeout()
         );
         tomcat.addServlet("", "magnesiumServlet", servlet);
         context.addServletMappingDecoded("/*", "magnesiumServlet");
 
         try {
+            initializeWebSockets(context, runtime);
+
+            try {
+                runtime.application().start(runtime);
+            } catch (Exception e) {
+                throw new IllegalStateException("Application failed during start()", e);
+            }
+
             tomcat.start();
+            try {
+                runtime.application().ready(runtime, getPort());
+            } catch (Exception e) {
+                throw new RuntimeException("[Magnesium] Tomcat transport interrupted by an error from Application#ready.", e);
+            }
 
-            initializeWebSockets(context, application);
-
-            application.onStart().accept(application.serviceRegistry());
-            application.shutdownLatch().await();
+            runtime.shutdownLatch().await();
         } catch (LifecycleException e) {
             throw new IllegalStateException("[Magnesium] Tomcat failed to start.", e);
         } catch (InterruptedException e) {
@@ -91,7 +102,7 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
         }
     }
 
-    private void initializeWebSockets(Context context, MagnesiumApplication application) {
+    private void initializeWebSockets(Context context, MagnesiumRuntime application) {
         ServletContext servletContext = context.getServletContext();
         ServerContainer serverContainer = (ServerContainer) servletContext
             .getAttribute("jakarta.websocket.server.ServerContainer");
@@ -103,8 +114,8 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
 
         try {
             new TomcatWebSocketInitializer(
-                application.httpServer().webSocketRouteRegistry(),
-                application.httpServer().webSocketSessionManager()
+                application.router().webSocketRouteRegistry(),
+                application.router().webSocketSessionManager()
             ).initialize(serverContainer);
         } catch (Exception e) {
             throw new IllegalStateException("[Magnesium] Failed to register WebSocket routes.", e);

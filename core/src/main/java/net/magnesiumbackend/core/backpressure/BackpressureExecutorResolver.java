@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.backpressure;
 
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,11 +37,11 @@ public final class BackpressureExecutorResolver {
     /**
      * Returns the effective executor for the given application.
      *
-     * @param application the sealed {@link MagnesiumApplication}
+     * @param application the sealed {@link MagnesiumRuntime}
      * @return a plain or bounded executor, never {@code null}
      */
     @NotNull
-    public static Executor resolve(@NotNull MagnesiumApplication application) {
+    public static Executor resolve(@NotNull MagnesiumRuntime application) {
         Executor base = baseExecutor(application.executor());
         BackpressureConfig config = application.backpressureConfig();
 

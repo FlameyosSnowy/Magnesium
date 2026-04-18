@@ -60,8 +60,25 @@ public final class ServiceRegistrar {
      * @param <T>     the service type
      * @return this registrar for method chaining
      */
-    public <T> ServiceRegistrar register(Class<T> type, Function<ServiceContext, T> factory) {
+    public <T> ServiceRegistrar register(Class<?> type, Function<ServiceContext, T> factory) {
         factories.put(type, factory);
+        return this;
+    }
+
+    /**
+     * Registers a service factory for the given type.
+     *
+     * <p>The factory will be called lazily when the service is first requested
+     * via {@link ServiceContext#get(Class)}. The factory receives a
+     * ServiceContext to resolve any dependencies.</p>
+     *
+     * @param type    the service type to register
+     * @param instance the instance
+     * @param <T>     the service type
+     * @return this registrar for method chaining
+     */
+    public <T> ServiceRegistrar registerInstance(Class<T> type, T instance) {
+        factories.put(type, ctx -> instance);
         return this;
     }
 

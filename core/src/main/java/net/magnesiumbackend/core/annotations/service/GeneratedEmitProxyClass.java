@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.annotations.service;
 
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.event.EmitRegistry;
 import net.magnesiumbackend.core.services.ServiceRegistry;
 
@@ -35,7 +35,7 @@ public interface GeneratedEmitProxyClass {
      * @return the proxy instance; callers should treat it as the original type
      */
     Object create(
-        MagnesiumApplication application,
+        MagnesiumRuntime application,
         ServiceRegistry      serviceRegistry,
         EmitRegistry         emitRegistry
     );

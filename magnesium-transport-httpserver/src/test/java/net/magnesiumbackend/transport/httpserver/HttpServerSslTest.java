@@ -1,6 +1,8 @@
 package net.magnesiumbackend.transport.httpserver;
 
+import net.magnesiumbackend.core.Application;
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.RouteDefinition;
@@ -31,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class HttpServerSslTest {
 
     private HttpServerMagnesiumTransport transport;
-    private MagnesiumApplication application;
+    private MagnesiumRuntime application;
     private int actualPort;
     private HttpClient httpsClient;
     private HttpClient httpClient;
@@ -104,24 +106,38 @@ class HttpServerSslTest {
             })
             .build();
 
-        application = MagnesiumApplication.builder()
-            .ssl(sslConfig)
-            .http(http -> {
-                // Copy HTTP routes from the pre-built httpServer
-                httpServer.routes().trees().forEach((method, tree) -> tree.entries().forEach(entry -> {
-                    RouteDefinition def = entry.handler();
-                    http.route(method, entry.path(), def.handler(), def.filters());
-                }));
+        application = new MagnesiumRuntime(new Application() {
+            @Override
+            public void configure(MagnesiumRuntime runtime) {
+
+            }
+
+            @Override
+            public void ready(MagnesiumRuntime runtime, int port) {
+                latch.countDown();
+            }
+        });
+        application.ssl(sslConfig);
+        application.router()
+            .get("/health", ctx -> ResponseEntity.ok(Map.of("status", "secure", "https", true)))
+            .commit()
+            .get("/api/data/{id}", ctx -> {
+                String id = ctx.pathVariables().get("id");
+                return ResponseEntity.ok(Map.of(
+                    "id", id == null ? "" : id,
+                    "secure", true,
+                    "protocol", "HTTPS"
+                ));
             })
-            .onStart(ctx -> latch.countDown())
-            .onExit(ctx -> {})
-            .build();
+            .commit();
+
+
 
         transport = new HttpServerMagnesiumTransport();
 
         Thread serverThread = new Thread(() -> {
             try {
-                transport.bind(0, application, application.httpServer().routes());
+                transport.bind(0, application, application.router().routes());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

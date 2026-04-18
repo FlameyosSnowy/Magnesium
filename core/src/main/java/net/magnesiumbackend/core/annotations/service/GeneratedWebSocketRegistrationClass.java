@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core.annotations.service;
 
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.http.websocket.WebSocketRouteRegistry;
 import net.magnesiumbackend.core.services.ServiceRegistry;
 
@@ -30,7 +30,7 @@ public interface GeneratedWebSocketRegistrationClass {
      * @param webSocketRouteRegistry destination for WebSocket route registrations
      */
     void register(
-        MagnesiumApplication application,
+        MagnesiumRuntime application,
         ServiceRegistry serviceRegistry,
         WebSocketRouteRegistry webSocketRouteRegistry
     );

@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.http;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
 
 /**
@@ -15,7 +16,7 @@ public interface MagnesiumTransport {
      * @param application The Magnesium application configuration
      * @param routes The route registry
      */
-    void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes);
+    void bind(int port, MagnesiumRuntime application, HttpRouteRegistry routes);
 
     /**
      * Shuts down the transport gracefully.

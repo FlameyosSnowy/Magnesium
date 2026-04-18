@@ -1,7 +1,7 @@
 package net.magnesiumbackend.transport.undertow;
 
 import io.undertow.Undertow;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
 import net.magnesiumbackend.core.route.HttpRouteRegistry;
@@ -20,21 +20,21 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
     private Undertow server;
 
     @Override
-    public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
-        SslConfig sslConfig = application.sslConfig();
+    public void bind(int port, MagnesiumRuntime runtime, HttpRouteRegistry routes) {
+        SslConfig sslConfig = runtime.sslConfig();
 
         Undertow.Builder serverBuilder = Undertow.builder();
         serverBuilder.addHttpListener(port, "0.0.0.0")
             .setHandler(new UndertowHttpHandler(
                 routes,
-                application.httpServer().globalFilters(),
-                application.exceptionHandlerRegistry(),
-                application.messageConverterRegistry(),
-                application.httpServer().webSocketRouteRegistry(),
-                application.httpServer().webSocketSessionManager(),
-                application.securityHeadersFilter(),
-                BackpressureExecutorResolver.resolve(application),
-                application.defaultTimeout()
+                runtime.router().globalFilters(),
+                runtime.exceptionHandlerRegistry(),
+                runtime.messageConverterRegistry(),
+                runtime.router().webSocketRouteRegistry(),
+                runtime.router().webSocketSessionManager(),
+                runtime.securityHeadersFilter(),
+                BackpressureExecutorResolver.resolve(runtime),
+                runtime.defaultTimeout()
             ));
 
         if (sslConfig != null) {
@@ -55,14 +55,23 @@ public class UndertowMagnesiumTransport implements MagnesiumTransport {
 
         server = serverBuilder.build();
 
+        try {
+            runtime.application().start(runtime);
+        } catch (Exception e) {
+            throw new IllegalStateException("Application failed during start()", e);
+        }
+
         server.start();
-        application.onStart().accept(application.serviceRegistry());
+        try {
+            runtime.application().ready(runtime, getPort());
+        } catch (Exception e) {
+            throw new RuntimeException("[Magnesium] Undertow transport interrupted by an error from Application#ready.", e);
+        }
 
         try {
-            application.shutdownLatch().await();
+            runtime.shutdownLatch().await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
         }
     }
 

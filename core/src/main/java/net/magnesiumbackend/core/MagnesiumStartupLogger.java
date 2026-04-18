@@ -25,15 +25,15 @@ final class MagnesiumStartupLogger {
         
         """;
 
-    static void logStartup(MagnesiumApplication app) {
+    static void logStartup(MagnesiumRuntime app) {
         LOGGER.info(BANNER);
 
         logRoutes(app);
         logWebSockets(app);
     }
 
-    private static void logRoutes(MagnesiumApplication app) {
-        var registry = app.httpServer().routes();
+    private static void logRoutes(MagnesiumRuntime app) {
+        var registry = app.router().routes();
 
         LOGGER.info("MAGNESIUM :: ROUTES");
 
@@ -54,8 +54,8 @@ final class MagnesiumStartupLogger {
         LOGGER.info("\n");
     }
 
-    private static void logWebSockets(MagnesiumApplication app) {
-        var registry = app.httpServer().webSocketRouteRegistry();
+    private static void logWebSockets(MagnesiumRuntime app) {
+        var registry = app.router().webSocketRouteRegistry();
 
         LOGGER.info("MAGNESIUM :: WEBSOCKETS");
 

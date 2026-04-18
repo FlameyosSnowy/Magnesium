@@ -1,7 +1,7 @@
 package net.magnesiumbackend.processor.generator;
 
 import com.palantir.javapoet.*;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.annotations.OnWebSocketClose;
 import net.magnesiumbackend.core.annotations.OnWebSocketException;
 import net.magnesiumbackend.core.annotations.OnWebSocketMessage;
@@ -60,7 +60,7 @@ public class WebSocketRegistrationGenerator {
         MethodSpec.Builder register = MethodSpec.methodBuilder("register")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(MagnesiumApplication.class, "application")
+            .addParameter(MagnesiumRuntime.class, "application")
             .addParameter(ServiceRegistry.class, "serviceRegistry")
             .addParameter(WebSocketRouteRegistry.class, "routeRegistry")
             .returns(void.class);

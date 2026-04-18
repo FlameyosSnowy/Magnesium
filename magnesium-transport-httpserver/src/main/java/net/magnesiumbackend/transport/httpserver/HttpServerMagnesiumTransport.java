@@ -2,7 +2,8 @@ package net.magnesiumbackend.transport.httpserver;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.backpressure.BackpressureExecutorResolver;
 import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumTransport;
@@ -17,8 +18,14 @@ import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import net.magnesiumbackend.core.security.SslConfig;
 
+import java.io.IOException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Executor;
@@ -28,10 +35,10 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
     private HttpServer server;
 
     @Override
-    public void bind(int port, MagnesiumApplication application, HttpRouteRegistry routes) {
-        try {
-            SslConfig sslConfig = application.sslConfig();
+    public void bind(int port, MagnesiumRuntime runtime, HttpRouteRegistry routes) {
+        SslConfig sslConfig = runtime.sslConfig();
 
+        try {
             if (sslConfig != null) {
                 HttpsServer httpsServer = HttpsServer.create(new InetSocketAddress(port), 0);
                 httpsServer.setHttpsConfigurator(new HttpsConfigurator(sslConfig.sslContext()) {
@@ -44,34 +51,69 @@ public class HttpServerMagnesiumTransport implements MagnesiumTransport {
             } else {
                 server = HttpServer.create(new InetSocketAddress(port), 0);
             }
+        } catch (BindException e) {
+            throw new RuntimeException(
+                "Port " + port + " is already in use. Is another instance of the server running?", e);
+        } catch (IOException e) {
+            throw new RuntimeException(
+                "Failed to bind " + (sslConfig != null ? "HTTPS" : "HTTP") +
+                    " server on port " + port + ": " + e.getMessage(), e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(
+                "SSL algorithm '" + e.getMessage() + "' is not supported by this JVM. " +
+                    "Check your SslConfig cipher suite and protocol configuration.", e);
+        } catch (KeyStoreException e) {
+            throw new RuntimeException(
+                "Failed to load the keystore. Verify the keystore path, format (JKS/PKCS12), " +
+                    "and that the file is not corrupted: " + e.getMessage(), e);
+        } catch (UnrecoverableKeyException e) {
+            throw new RuntimeException(
+                "Could not recover the private key from the keystore. " +
+                    "The key password is likely incorrect.", e);
+        } catch (KeyManagementException e) {
+            throw new RuntimeException(
+                "Failed to initialise the SSL context. This usually means the configured " +
+                    "certificates and keys are inconsistent or incompatible: " + e.getMessage(), e);
+        }
 
-            Executor executor = BackpressureExecutorResolver.resolve(application);
-            server.setExecutor(Objects.requireNonNullElseGet(executor, Executors::newVirtualThreadPerTaskExecutor));
+        Executor executor = BackpressureExecutorResolver.resolve(runtime);
+        server.setExecutor(Objects.requireNonNullElseGet(executor, Executors::newVirtualThreadPerTaskExecutor));
 
-            server.createContext("/", new MagnesiumHttpHandler(
-                routes,
-                application.httpServer().globalFilters(),
-                application.exceptionHandlerRegistry(),
-                application.messageConverterRegistry(),
-                application.securityHeadersFilter(),
-                executor,
-                application.defaultTimeout()
-            ));
+        server.createContext("/", new MagnesiumHttpHandler(
+            routes,
+            runtime.router().globalFilters(),
+            runtime.exceptionHandlerRegistry(),
+            runtime.messageConverterRegistry(),
+            runtime.securityHeadersFilter(),
+            executor,
+            runtime.defaultTimeout()
+        ));
 
-            registerWebSocketRoutes(application);
+        registerWebSocketRoutes(runtime);
 
-            server.start();
-            application.onStart().accept(application.serviceRegistry());
-            application.shutdownLatch().await();
+        try {
+            runtime.application().start(runtime);
         } catch (Exception e) {
+            throw new IllegalStateException("Application failed during start()", e);
+        }
+
+        server.start();
+        try {
+            runtime.application().ready(runtime, getPort());
+        } catch (Exception e) {
+            throw new RuntimeException("[Magnesium] Undertow transport interrupted by an error from Application#ready.", e);
+        }
+
+        try {
+            runtime.shutdownLatch().await();
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
         }
     }
 
-    private void registerWebSocketRoutes(MagnesiumApplication application) {
-        WebSocketRouteRegistry wsRegistry = application.httpServer().webSocketRouteRegistry();
-        WebSocketSessionManager sessionManager = application.httpServer().webSocketSessionManager();
+    private void registerWebSocketRoutes(MagnesiumRuntime application) {
+        WebSocketRouteRegistry wsRegistry = application.router().webSocketRouteRegistry();
+        WebSocketSessionManager sessionManager = application.router().webSocketSessionManager();
 
         for (RouteTree.RouteEntry<WebSocketHandlerWrapper> entry : wsRegistry.entries()) {
 
