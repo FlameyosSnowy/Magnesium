@@ -165,7 +165,7 @@ public record RouteDefinition(
             private int index = 0;
 
             @Override
-            public ResponseEntity<?> next(RequestContext ctx) {
+            public Object next(RequestContext ctx) {
                 if (index < filters.size()) {
                     Object result = filters.get(index++).handle(ctx, this);
                     // Resolve async filters and continue chain
@@ -176,7 +176,7 @@ public record RouteDefinition(
                 }
                 // Execute handler
                 Object result = handler.handle(ctx);
-                return ResponseEntityResolver.resolveSync(result);
+                return ResponseEntityResolver.toCompletableFuture(result);
             }
         };
     }
