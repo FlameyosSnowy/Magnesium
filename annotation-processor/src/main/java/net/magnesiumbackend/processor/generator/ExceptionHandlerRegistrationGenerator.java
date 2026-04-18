@@ -6,7 +6,7 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.annotations.ExceptionHandler;
 import net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
 import net.magnesiumbackend.core.base.MagnesiumController;
@@ -82,7 +82,7 @@ public class ExceptionHandlerRegistrationGenerator {
      *         implements GeneratedExceptionHandlerClass {
      *
      *     @Override
-     *     public void register(MagnesiumApplication application, ServiceRegistry serviceRegistry) {
+     *     public void register(MagnesiumRuntime application, ServiceRegistry serviceRegistry) {
      *         GlobalExceptionHandlers __handler = new GlobalExceptionHandlers(
      *             serviceRegistry.get(OrderService.class)
      *         );
@@ -101,7 +101,7 @@ public class ExceptionHandlerRegistrationGenerator {
         MethodSpec.Builder register = MethodSpec.methodBuilder("register")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(MagnesiumApplication.class, "application")
+            .addParameter(MagnesiumRuntime.class, "application")
             .addParameter(ServiceRegistry.class, "serviceRegistry")
             .returns(void.class);
 
