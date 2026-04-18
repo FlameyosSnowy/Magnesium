@@ -3,10 +3,12 @@ package net.magnesiumbackend.core;
 import net.magnesiumbackend.core.annotations.service.GeneratedEmitProxyClass;
 import net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass;
 import net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass;
+import net.magnesiumbackend.core.annotations.service.GeneratedServiceClass;
 import net.magnesiumbackend.core.annotations.service.GeneratedSubscriberClass;
 import net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.ServiceLoader;
 
@@ -15,7 +17,8 @@ public record MagnesiumBootstrap(
     List<GeneratedEmitProxyClass> emitProxies,
     List<GeneratedExceptionHandlerClass> exceptionHandlers,
     List<GeneratedRouteRegistrationClass> routes,
-    List<GeneratedWebSocketRegistrationClass> webSockets
+    List<GeneratedWebSocketRegistrationClass> webSockets,
+    List<GeneratedServiceClass> services
 ) {
 
     public static MagnesiumBootstrap load() {
@@ -24,7 +27,8 @@ public record MagnesiumBootstrap(
             loadAll(GeneratedEmitProxyClass.class),
             loadAll(GeneratedExceptionHandlerClass.class),
             loadAll(GeneratedRouteRegistrationClass.class),
-            loadAll(GeneratedWebSocketRegistrationClass.class)
+            loadAll(GeneratedWebSocketRegistrationClass.class),
+            loadAll(GeneratedServiceClass.class)
         );
     }
 
@@ -36,7 +40,7 @@ public record MagnesiumBootstrap(
         return providers;
     }
 
-    public void apply(MagnesiumApplication app) {
+    public void apply(MagnesiumRuntime app) {
         var services = app.serviceRegistry();
         var eventBus = app.eventBus();
 
@@ -54,11 +58,11 @@ public record MagnesiumBootstrap(
         }
 
         for (var r : routes) {
-            r.register(app, services, app.httpServer().routes());
+            r.register(app, services, app.router().routes());
         }
 
         for (var ws : webSockets) {
-            ws.register(app, services, app.httpServer().webSocketRouteRegistry());
+            ws.register(app, services, app.router().webSocketRouteRegistry());
         }
     }
 }

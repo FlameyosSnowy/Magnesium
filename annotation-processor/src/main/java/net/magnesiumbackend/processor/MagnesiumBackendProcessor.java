@@ -12,6 +12,7 @@ import net.magnesiumbackend.processor.generator.RouteRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.SubscribeRegistrationGenerator;
 
 import net.magnesiumbackend.processor.generator.WebSocketRegistrationGenerator;
+import net.magnesiumbackend.processor.generator.ServiceAutoWireGenerator;
 import net.magnesiumbackend.processor.validation.CompileTimeValidator;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,8 +24,10 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -49,6 +52,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     private WebSocketRegistrationGenerator        webSocketRegistrationGenerator;
     private ApplicationConfigurationGenerator     applicationConfigurationGenerator;
     private LifecycleRegistrationGenerator        lifecycleRegistrationGenerator;
+    private ServiceAutoWireGenerator serviceAutoWireGenerator;
     private RouteManifestGenerator manifestGenerator;
     private CompileTimeValidator validator;
 
@@ -77,6 +81,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         this.validator                            = new CompileTimeValidator(types, elements, messager);
         this.applicationConfigurationGenerator    = new ApplicationConfigurationGenerator(types, filer, elements, messager, validator);
         this.lifecycleRegistrationGenerator       = new LifecycleRegistrationGenerator(types, filer, elements, messager);
+        this.serviceAutoWireGenerator = new ServiceAutoWireGenerator(processingEnv);
         this.manifestGenerator = new RouteManifestGenerator(filer, elements, types, messager);
     }
 
@@ -106,7 +111,11 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(PathParam.class.getCanonicalName());
         supported.add(QueryParam.class.getCanonicalName());
         supported.add(Lifecycle.class.getCanonicalName());
+        supported.add(RestService.class.getCanonicalName());
+        supported.add(DependsOn.class.getCanonicalName());
+        supported.add(Inject.class.getCanonicalName());
         supported.add(OnInitialize.class.getCanonicalName());
+        supported.add(PreDestroy.class.getCanonicalName());
         supported.add(OnWebSocketOpen.class.getCanonicalName());
         supported.add(OnWebSocketMessage.class.getCanonicalName());
         supported.add(OnWebSocketClose.class.getCanonicalName());
@@ -172,7 +181,120 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             roundEnvironment.getElementsAnnotatedWith(Lifecycle.class)
         );
 
+        processRestServices(
+            roundEnvironment.getElementsAnnotatedWith(RestService.class)
+        );
+
         return true;
+    }
+
+    private void processRestServices(Set<? extends Element> services) {
+        for (Element service : services) {
+            if (!(service instanceof TypeElement typeElement)) continue;
+
+            // Validate RestService configuration
+            validateRestService(typeElement);
+
+            try {
+                this.serviceAutoWireGenerator.generateServiceWiring(typeElement);
+            } catch (IOException e) {
+                this.messager.printMessage(
+                    javax.tools.Diagnostic.Kind.ERROR,
+                    "Failed to generate service wiring: " + e.getMessage(),
+                    service
+                );
+            }
+        }
+    }
+
+    /**
+     * Validates @RestService configuration including:
+     * - as() attribute points to an implemented interface
+     * - @PreDestroy methods have correct signature
+     * - Constructor dependencies are resolvable
+     */
+    private void validateRestService(TypeElement serviceElement) {
+        RestService restService = serviceElement.getAnnotation(RestService.class);
+        if (restService == null) return;
+
+        // Validate as() attribute - class must implement the interface
+        try {
+            Class<?> asClass = restService.as();
+            if (asClass != void.class) {
+                // Check if service implements the specified interface
+                boolean implementsInterface = false;
+                for (TypeMirror iface : serviceElement.getInterfaces()) {
+                    if (iface.toString().equals(asClass.getCanonicalName())) {
+                        implementsInterface = true;
+                        break;
+                    }
+                }
+                if (!implementsInterface) {
+                    error("Service does not implement interface specified in as(): " + asClass.getCanonicalName(),
+                        serviceElement);
+                }
+            }
+        } catch (MirroredTypeException e) {
+            // Type mirror available at compile time - validate
+            TypeMirror typeMirror = e.getTypeMirror();
+            if (typeMirror.getKind() != TypeKind.VOID) {
+                boolean implementsInterface = false;
+                String targetType = typeMirror.toString();
+                for (TypeMirror iface : serviceElement.getInterfaces()) {
+                    if (iface.toString().equals(targetType)) {
+                        implementsInterface = true;
+                        break;
+                    }
+                }
+                if (!implementsInterface) {
+                    error("Service does not implement interface specified in as(): " + targetType,
+                        serviceElement);
+                }
+            }
+        }
+
+        // Validate @PreDestroy methods
+        for (Element element : serviceElement.getEnclosedElements()) {
+            if (element.getKind() == ElementKind.METHOD) {
+                PreDestroy preDestroy = element.getAnnotation(PreDestroy.class);
+                if (preDestroy != null) {
+                    ExecutableElement method = (ExecutableElement) element;
+
+                    // Must be void return type
+                    if (method.getReturnType().getKind() != TypeKind.VOID) {
+                        error("@PreDestroy method must have void return type", method);
+                    }
+
+                    // Must have no parameters
+                    if (!method.getParameters().isEmpty()) {
+                        error("@PreDestroy method must have no parameters", method);
+                    }
+
+                    // Must not be private
+                    if (method.getModifiers().contains(Modifier.PRIVATE)) {
+                        error("@PreDestroy method must not be private", method);
+                    }
+                }
+
+                // Validate @OnInitialize methods
+                OnInitialize onInit = element.getAnnotation(OnInitialize.class);
+                if (onInit != null) {
+                    ExecutableElement method = (ExecutableElement) element;
+
+                    if (method.getReturnType().getKind() != TypeKind.VOID) {
+                        error("@OnInitialize method must have void return type", method);
+                    }
+
+                    if (!method.getParameters().isEmpty()) {
+                        error("@OnInitialize method must have no parameters", method);
+                    }
+
+                    if (method.getModifiers().contains(Modifier.PRIVATE)) {
+                        error("@OnInitialize method must not be private", method);
+                    }
+                }
+            }
+        }
     }
 
     private void processApplicationConfigurations(Set<? extends Element> configs) {
@@ -400,6 +522,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         boolean hasOnError          = method.getAnnotation(OnWebSocketException.class) != null;
         boolean hasWebSocket        = hasOnOpen || hasOnMessage || hasOnClose || hasOnError;
         boolean hasOnInitialize     = method.getAnnotation(OnInitialize.class) != null;
+        boolean hasPreDestroy         = method.getAnnotation(PreDestroy.class) != null;
 
         if (routeCount > 1) {
             error("A method may only carry one @*Route annotation.", method);
@@ -417,8 +540,12 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             error("WebSocket annotations cannot be combined with @*Route or @Subscribe/@Emit annotations.", method);
         }
 
-        if (hasOnInitialize && (routeCount > 0 || subscribe || hasExceptionHandler)) {
-            error("@OnInitialize cannot be combined with @*Route, @Subscribe/@Emit, or @ExceptionHandler annotations.", method);
+        if (hasOnInitialize && (routeCount > 0 || subscribe || hasExceptionHandler || hasPreDestroy)) {
+            error("@OnInitialize cannot be combined with @*Route, @Subscribe/@Emit, @ExceptionHandler, or @PreDestroy annotations.", method);
+        }
+
+        if (hasPreDestroy && (routeCount > 0 || subscribe || hasExceptionHandler || hasOnInitialize || hasWebSocket)) {
+            error("@PreDestroy cannot be combined with @*Route, @Subscribe/@Emit, @ExceptionHandler, @OnInitialize, or WebSocket annotations.", method);
         }
 
         if (hasExceptionHandler && (routeCount > 0 || subscribe || hasWebSocket)) {
