@@ -151,15 +151,13 @@ public class WebSocketRegistrationGenerator {
             } else if (onWebSocketClose != null) {
                 lifecycle = WsLifecycle.CLOSE;
                 path = onWebSocketClose.path().isEmpty() ? "/" : onWebSocketClose.path();
-            } else if (onError != null) {
+            } else {
                 lifecycle = WsLifecycle.ERROR;
                 path = onError.path().isEmpty() ? "/" : onError.path();
             }
 
-            if (lifecycle == null || path == null) continue;
-
             // Ensure path starts with /
-            if (!path.startsWith("/")) {
+            if (path.charAt(0) != '/') {
                 path = "/" + path;
             }
 

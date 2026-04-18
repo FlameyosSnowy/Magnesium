@@ -72,12 +72,22 @@ public class NettyMagnesiumTransport implements MagnesiumTransport {
             try {
                 runtime.application().start(runtime);
             } catch (Exception e) {
+                runtime.application().startFuture().completeExceptionally(e);
                 throw new IllegalStateException("Application failed during start()", e);
             }
 
             this.channel = bootstrap.bind(port).sync().channel();
             LOGGER.info("[Magnesium] Netty listening on port {} ({})",
                 port, sslConfig != null ? "HTTPS" : "HTTP");
+
+            // Wait for application to signal it's ready before accepting connections
+            try {
+                runtime.application().startFuture().get();
+            } catch (Exception e) {
+                LOGGER.error("Application startFuture failed, shutting down", e);
+                shutdown();
+                return;
+            }
 
             try {
                 try {

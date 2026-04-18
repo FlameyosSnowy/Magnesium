@@ -83,10 +83,20 @@ public class TomcatMagnesiumTransport implements MagnesiumTransport {
             try {
                 runtime.application().start(runtime);
             } catch (Exception e) {
+                runtime.application().startFuture().completeExceptionally(e);
                 throw new IllegalStateException("Application failed during start()", e);
             }
 
             tomcat.start();
+
+            // Wait for application to signal it's ready before accepting connections
+            try {
+                runtime.application().startFuture().get();
+            } catch (Exception e) {
+                shutdown();
+                throw new RuntimeException("Application startFuture failed", e);
+            }
+
             try {
                 runtime.application().ready(runtime, getPort());
             } catch (Exception e) {

@@ -1,5 +1,7 @@
 package net.magnesiumbackend.core;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Base class for a Magnesium application.
  *
@@ -44,6 +46,22 @@ package net.magnesiumbackend.core;
  * </ol>
  */
 public abstract class Application {
+
+    /**
+     * Future that the application completes when it's ready to accept traffic.
+     * Transports wait for this future before processing requests.
+     */
+    protected final CompletableFuture<Void> startFuture = new CompletableFuture<>();
+
+    /**
+     * Returns the start future that completes when the application is ready.
+     * Transports use this to know when to start accepting connections.
+     *
+     * @return CompletableFuture that completes when application is ready
+     */
+    public CompletableFuture<Void> startFuture() {
+        return startFuture;
+    }
 
     /**
      * Pure configuration phase — called before any server thread starts.
