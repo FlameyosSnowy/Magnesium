@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -131,9 +132,11 @@ public class MagnesiumRuntime {
     @Contract("_ -> this")
     public MagnesiumRuntime services(@NotNull Consumer<ServiceRegistrar> configure) {
         ensureNotFrozen();
+        Objects.requireNonNull(jsonProvider, "Cannot provide services before providing JsonProvider.");
+        Objects.requireNonNull(configurationManager, "Cannot provide services before providing MagnesiumConfigurationManager.");
         ServiceRegistrar registrar = new ServiceRegistrar(serviceFactories);
         configure.accept(registrar);
-        this.serviceRegistry = ServiceRegistry.from(registrar, eventBus);
+        this.serviceRegistry = ServiceRegistry.from(registrar, eventBus, jsonProvider, configurationManager);
         return this;
     }
 
