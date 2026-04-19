@@ -21,6 +21,9 @@
         <module>magnesium-dsljson-json-provider</module>
         <module>magnesium-jackson-json-provider</module>
         <module>magnesium-fastjson2-json-provider</module>
+        <module>magnesium-data-redis</module>
+        <module>magnesium-search-elasticsearch</module>
+        <module>magnesium-amqp-rabbitmq</module>
     </modules>
 
     <properties>
