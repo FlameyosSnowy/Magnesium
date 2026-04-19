@@ -1,6 +1,8 @@
 package net.magnesiumbackend.core.services;
 
+import net.magnesiumbackend.core.config.MagnesiumConfigurationManager;
 import net.magnesiumbackend.core.event.EventBus;
+import net.magnesiumbackend.core.json.JsonProvider;
 
 /**
  * Provides access to registered services and framework singletons.
@@ -46,6 +48,8 @@ public interface ServiceContext {
      */
     <T> T get(Class<T> type);
 
+    JsonProvider jsonProvider();
+
     /**
      * Returns the application's event bus.
      *
@@ -55,4 +59,6 @@ public interface ServiceContext {
      * @return the event bus instance
      */
     EventBus eventBus();
+
+    MagnesiumConfigurationManager configurationManager();
 }
