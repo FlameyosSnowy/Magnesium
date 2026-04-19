@@ -3,10 +3,12 @@ package net.magnesiumbackend.processor;
 import net.magnesiumbackend.core.annotations.*;
 
 import net.magnesiumbackend.processor.event.EventInformation;
+import net.magnesiumbackend.processor.generator.ApplicationPropertiesGenerator;
 import net.magnesiumbackend.processor.generator.EmitRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.ApplicationConfigurationGenerator;
 import net.magnesiumbackend.processor.generator.ExceptionHandlerRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.LifecycleRegistrationGenerator;
+import net.magnesiumbackend.processor.generator.RabbitMQListenerGenerator;
 import net.magnesiumbackend.processor.generator.RouteManifestGenerator;
 import net.magnesiumbackend.processor.generator.RouteRegistrationGenerator;
 import net.magnesiumbackend.processor.generator.SubscribeRegistrationGenerator;
@@ -51,18 +53,23 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     private SubscribeRegistrationGenerator        subscribeRegistrationGenerator;
     private WebSocketRegistrationGenerator        webSocketRegistrationGenerator;
     private ApplicationConfigurationGenerator     applicationConfigurationGenerator;
+    private ApplicationPropertiesGenerator applicationPropertiesGenerator;
     private LifecycleRegistrationGenerator        lifecycleRegistrationGenerator;
     private ServiceAutoWireGenerator serviceAutoWireGenerator;
     private RouteManifestGenerator manifestGenerator;
+    private RabbitMQListenerGenerator rabbitMQListenerGenerator;
     private CompileTimeValidator validator;
 
+    private final Set<String> wiringRegistrations = new HashSet<>(32);
     private final Set<String> routeRegistrations = new HashSet<>(32);
     private final Set<String> emitRegistrations = new HashSet<>(32);
     private final Set<String> subscribeRegistrations = new HashSet<>(32);
     private final Set<String> exceptionHandlerRegistrations = new HashSet<>(32);
     private final Set<String> webSocketRegistrations = new HashSet<>(32);
     private final Set<String> applicationConfigurationRegistrations = new HashSet<>(32);
+    private final Set<String> applicationPropertiesRegistrations = new HashSet<>(32);
     private final Set<String> lifecycleRegistrations = new HashSet<>(32);
+    private final Set<String> rabbitMQRegistrations = new HashSet<>(32);
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -80,14 +87,17 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         this.subscribeRegistrationGenerator       = new SubscribeRegistrationGenerator(types, filer, elements, messager);
         this.validator                            = new CompileTimeValidator(types, elements, messager);
         this.applicationConfigurationGenerator    = new ApplicationConfigurationGenerator(types, filer, elements, messager, validator);
+        this.applicationPropertiesGenerator       = new ApplicationPropertiesGenerator(types, filer, elements, messager);
         this.lifecycleRegistrationGenerator       = new LifecycleRegistrationGenerator(types, filer, elements, messager);
+        this.rabbitMQListenerGenerator            = new RabbitMQListenerGenerator(types, filer, elements, messager, wiringRegistrations);
         this.serviceAutoWireGenerator = new ServiceAutoWireGenerator(processingEnv);
         this.manifestGenerator = new RouteManifestGenerator(filer, elements, types, messager);
     }
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        Set<String> supported = new HashSet<>(8);
+        Set<String> supported = new HashSet<>(64);
+        // Core annotations
         supported.add(GetMapping.class.getCanonicalName());
         supported.add(PostMapping.class.getCanonicalName());
         supported.add(PutMapping.class.getCanonicalName());
@@ -120,6 +130,14 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(OnWebSocketMessage.class.getCanonicalName());
         supported.add(OnWebSocketClose.class.getCanonicalName());
         supported.add(OnWebSocketException.class.getCanonicalName());
+        supported.add(ApplicationProperties.class.getCanonicalName());
+        supported.add(ApplicationProperty.class.getCanonicalName());
+        // RabbitMQ annotations
+        supported.add(net.magnesiumbackend.amqp.annotations.QueueListener.class.getCanonicalName());
+        supported.add(net.magnesiumbackend.amqp.annotations.Exchange.class.getCanonicalName());
+        supported.add(net.magnesiumbackend.amqp.annotations.Binding.class.getCanonicalName());
+        supported.add(net.magnesiumbackend.amqp.annotations.DeadLetterQueue.class.getCanonicalName());
+        supported.add(net.magnesiumbackend.amqp.annotations.RabbitPublisher.class.getCanonicalName());
         return supported;
     }
 
@@ -128,31 +146,48 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         if (roundEnvironment.processingOver()) {
             writeServiceFile(
                 "net.magnesiumbackend.core.annotations.service.GeneratedRouteRegistrationClass",
-                routeRegistrations
+                routeRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.annotations.service.GeneratedEmitProxyClass",
-                emitRegistrations
+                emitRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.annotations.service.GeneratedExceptionHandlerClass",
-                exceptionHandlerRegistrations
+                exceptionHandlerRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.annotations.service.GeneratedSubscriberClass",
-                subscribeRegistrations
+                subscribeRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass",
-                webSocketRegistrations
+                webSocketRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.config.GeneratedConfigClass",
-                applicationConfigurationRegistrations
+                applicationConfigurationRegistrations,
+                processingEnv
+            );
+            writeServiceFile(
+                "net.magnesiumbackend.core.config.GeneratedConfigClass",
+                applicationPropertiesRegistrations,
+                processingEnv
             );
             writeServiceFile(
                 "net.magnesiumbackend.core.lifecycle.generated.GeneratedLifecycleClass",
-                lifecycleRegistrations
+                lifecycleRegistrations,
+                processingEnv
+            );
+            writeServiceFile(
+                "net.magnesiumbackend.core.lifecycle.generated.GeneratedLifecycleClass",
+                wiringRegistrations,
+                processingEnv
             );
 
             // Generate lifecycle metadata after all classes are processed
@@ -183,6 +218,14 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
 
         processRestServices(
             roundEnvironment.getElementsAnnotatedWith(RestService.class)
+        );
+
+        processApplicationProperties(
+            roundEnvironment.getElementsAnnotatedWith(ApplicationProperties.class)
+        );
+
+        processRabbitMQListeners(
+            roundEnvironment.getElementsAnnotatedWith(net.magnesiumbackend.amqp.annotations.QueueListener.class)
         );
 
         return true;
@@ -307,6 +350,34 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         }
     }
 
+    private void processApplicationProperties(Set<? extends Element> properties) {
+        for (Element props : properties) {
+            if (!(props instanceof TypeElement typeElement)) continue;
+
+            // Validate first
+            this.applicationPropertiesGenerator.validate(typeElement);
+
+            // Then generate
+            String generated = this.applicationPropertiesGenerator.generate(typeElement);
+            if (generated != null) {
+                this.applicationPropertiesRegistrations.add(generated);
+            }
+        }
+    }
+
+    private void processRabbitMQListeners(Set<? extends Element> listeners) {
+        for (Element listener : listeners) {
+            // Get the enclosing class
+            Element enclosing = listener.getEnclosingElement();
+            if (!(enclosing instanceof TypeElement typeElement)) continue;
+
+            String generated = this.rabbitMQListenerGenerator.generate(typeElement);
+            if (generated != null) {
+                this.rabbitMQRegistrations.add(generated);
+            }
+        }
+    }
+
     private void processExceptionHandlers(Set<? extends Element> exceptionHandlers) {
         for (Element exceptionHandler : exceptionHandlers) {
             if (!(exceptionHandler instanceof TypeElement typeElement)) continue;
@@ -408,7 +479,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         if (name.contains("ResponseEntity") && type instanceof javax.lang.model.type.DeclaredType declared) {
             List<? extends TypeMirror> args = declared.getTypeArguments();
             if (!args.isEmpty()) {
-                return args.get(0);
+                return args.getFirst();
             }
         }
         return type;
@@ -459,7 +530,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     }
 
     private List<String> extractFilterChain(ExecutableElement method, TypeElement controllerClass) {
-        List<String> filters = new ArrayList<>();
+        List<String> filters = new ArrayList<>(32);
 
         // Check method-level @Filter and @Filters
         Filter methodFilter = method.getAnnotation(Filter.class);
@@ -554,7 +625,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         }
     }
 
-    private void writeServiceFile(String service, Set<String> impls) {
+    public static void writeServiceFile(String service, Set<String> impls, ProcessingEnvironment processingEnv) {
         try {
             FileObject file = processingEnv.getFiler().createResource(
                 StandardLocation.CLASS_OUTPUT,
