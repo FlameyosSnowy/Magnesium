@@ -47,17 +47,35 @@ public final class MagnesiumConfigurationManager {
         return (T) loaded;
     }
 
+    /**
+     * Clears the configuration cache, forcing all configurations to be reloaded
+     * from the source on next access.
+     *
+     * <p>This is useful when using {@link ReloadableTomlConfigSource} - call this
+     * method after the configuration file has been modified to pick up changes.</p>
+     *
+     * <p>Note: This method is automatically called by ReloadableTomlConfigSource
+     * when the file changes, so manual invocation is usually not necessary.</p>
+     */
+    public synchronized void refresh() {
+        cache.clear();
+    }
+
     public static @NotNull Builder builder() {
         return new Builder();
     }
 
     public static final class Builder {
         private final List<ConfigSource> sources = new ArrayList<>();
+        private final List<ReloadableSource> reloadableSources = new ArrayList<>();
 
         private Builder() {}
 
         public @NotNull Builder source(@NotNull ConfigSource source) {
             this.sources.add(source);
+            if (source instanceof ReloadableSource reloadable) {
+                this.reloadableSources.add(reloadable);
+            }
             return this;
         }
 
@@ -77,11 +95,26 @@ public final class MagnesiumConfigurationManager {
             return source(new EnvConfigSource());
         }
 
+        public @NotNull Builder toml(@NotNull Path path) {
+            ReloadableTomlConfigSource source = ReloadableTomlConfigSource.fromPath(path);
+            sources.add(source);
+            reloadableSources.add(source);
+            return this;
+        }
+
         public @NotNull MagnesiumConfigurationManager build() {
             ConfigSource chain = sources.isEmpty()
                 ? new ConfigSourceChain("empty", List.of())
                 : new ConfigSourceChain("chain", List.copyOf(sources));
-            return new MagnesiumConfigurationManager(chain);
+            MagnesiumConfigurationManager manager = new MagnesiumConfigurationManager(chain);
+
+            // Register reload callbacks to clear cache when config changes
+            Runnable refreshCallback = manager::refresh;
+            for (ReloadableSource reloadable : reloadableSources) {
+                reloadable.onReload(refreshCallback);
+            }
+
+            return manager;
         }
     }
 }
