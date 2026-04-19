@@ -48,7 +48,10 @@ public class WebSocketRegistrationGenerator {
     }
 
     private enum WsLifecycle {
-        OPEN, MESSAGE, CLOSE, ERROR
+        OPEN,
+        MESSAGE,
+        CLOSE,
+        ERROR
     }
 
     @Nullable

@@ -68,10 +68,6 @@ public class BasicAnnotationExample extends Application {
         }
     }
 
-    // ============================================================
-    // REST Controller (Auto-registered routes via annotations)
-    // ============================================================
-
     @RestController
     public static class UserController {
         private final UserService userService;

@@ -1,6 +1,6 @@
 package net.magnesiumbackend.core;
 
-import net.magnesiumbackend.core.annotations.service.GeneratedServiceClass;
+import net.magnesiumbackend.core.extensions.MagnesiumExtension;
 import net.magnesiumbackend.core.json.JsonProviderLoader;
 import net.magnesiumbackend.core.meta.GeneratedExceptionHandlers;
 import net.magnesiumbackend.core.security.RequestSigningFilter;
@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -62,6 +63,25 @@ public final class MagnesiumApplication {
      */
     public static void run(@NotNull Application application, int port) {
         MagnesiumRuntime runtime = new MagnesiumRuntime(application);
+
+        // Auto-load extensions via ServiceLoader before application.configure()
+        LOGGER.info("Loading Magnesium extensions via ServiceLoader.");
+        ServiceLoader<MagnesiumExtension> extensionLoader = ServiceLoader.load(MagnesiumExtension.class);
+        List<MagnesiumExtension> extensions = new ArrayList<>();
+        for (MagnesiumExtension extension : extensionLoader) {
+            extensions.add(extension);
+            LOGGER.info("Discovered extension: {} ({})", extension.name(), extension.getClass().getName());
+        }
+
+        // Sort extensions by name for deterministic ordering
+        extensions.sort(Comparator.comparing(MagnesiumExtension::name));
+
+        // Configure all discovered extensions
+        for (MagnesiumExtension extension : extensions) {
+            LOGGER.info("Configuring extension: {}", extension.name());
+            extension.configure(runtime);
+        }
+
         application.configure(runtime);
 
         runtime.freeze();

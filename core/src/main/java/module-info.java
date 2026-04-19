@@ -11,6 +11,7 @@ module core {
     uses net.magnesiumbackend.core.annotations.service.GeneratedWebSocketRegistrationClass;
     uses net.magnesiumbackend.core.annotations.service.GeneratedServiceClass;
     uses net.magnesiumbackend.core.json.JsonProvider;
+    uses net.magnesiumbackend.core.extensions.MagnesiumExtension;
 
     requires io.github.flameyossnowy.velocis;
     requires org.jetbrains.annotations;
@@ -22,6 +23,7 @@ module core {
     requires org.bouncycastle.provider;
     requires java.net.http;
     requires org.junit.jupiter.api;
+    requires org.tomlj;
 
     exports net.magnesiumbackend.core;
     exports net.magnesiumbackend.core.annotations;

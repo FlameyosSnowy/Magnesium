@@ -1,6 +1,8 @@
 package net.magnesiumbackend.core.services;
 
+import net.magnesiumbackend.core.config.MagnesiumConfigurationManager;
 import net.magnesiumbackend.core.event.EventBus;
+import net.magnesiumbackend.core.json.JsonProvider;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,17 +38,23 @@ public final class ServiceRegistry implements ServiceContext {
     private final EventBus                                   bus;
     private final Map<Class<?>, Object>                      instances   = new HashMap<>(8);
     private final Set<Class<?>>                              inProgress  = new HashSet<>(8);
+    private final JsonProvider jsonProvider;
+    private final MagnesiumConfigurationManager configurationManager;
 
     public ServiceRegistry(
         Map<Class<?>, Function<ServiceContext, ?>> factories,
-        EventBus bus
+        EventBus bus,
+        JsonProvider jsonProvider,
+        MagnesiumConfigurationManager configurationManager
     ) {
         this.factories = factories;
         this.bus       = bus;
+        this.jsonProvider = jsonProvider;
+        this.configurationManager = configurationManager;
     }
 
-    public static ServiceRegistry from(ServiceRegistrar registrar, EventBus eventBus) {
-        return new ServiceRegistry(registrar.factories(), eventBus);
+    public static ServiceRegistry from(ServiceRegistrar registrar, EventBus eventBus, JsonProvider jsonProvider, MagnesiumConfigurationManager configurationManager) {
+        return new ServiceRegistry(registrar.factories(), eventBus, jsonProvider, configurationManager);
     }
 
     @Override
@@ -86,8 +94,18 @@ public final class ServiceRegistry implements ServiceContext {
     }
 
     @Override
+    public JsonProvider jsonProvider() {
+        return jsonProvider;
+    }
+
+    @Override
     public EventBus eventBus() {
         return bus;
+    }
+
+    @Override
+    public MagnesiumConfigurationManager configurationManager() {
+        return configurationManager;
     }
 
     /**
