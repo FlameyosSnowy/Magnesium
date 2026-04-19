@@ -16,6 +16,7 @@ module core {
     requires io.github.flameyossnowy.velocis;
     requires org.jetbrains.annotations;
     requires org.slf4j;
+    requires java.logging;
     requires com.nimbusds.jose.jwt;
     requires org.snakeyaml.engine.v2;
     requires java.desktop;
@@ -49,4 +50,9 @@ module core {
     exports net.magnesiumbackend.core.cancellation;
     exports net.magnesiumbackend.core.backpressure;
     exports net.magnesiumbackend.core.reload;
+    exports net.magnesiumbackend.core.runtime.kernel;
+    exports net.magnesiumbackend.core.runtime.input;
+    exports net.magnesiumbackend.core.runtime.lifecycle;
+    exports net.magnesiumbackend.core.runtime.config;
+    exports net.magnesiumbackend.core.runtime.engine;
 }

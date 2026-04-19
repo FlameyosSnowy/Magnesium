@@ -40,10 +40,6 @@ import java.util.concurrent.Executors;
  */
 public class AdvancedAnnotationExample extends Application {
 
-    // ============================================================
-    // Configuration
-    // ============================================================
-
     @ApplicationConfiguration
     public record DatabaseConfig(
         @ConfigKey("db.host") String host,
@@ -57,10 +53,6 @@ public class AdvancedAnnotationExample extends Application {
         @ConfigKey("server.max-connections") int maxConnections
     ) {}
 
-    // ============================================================
-    // Domain Models
-    // ============================================================
-
     public record Order(UUID id, String product, int quantity, double price, String status) {
         public Order(String product, int quantity, double price) {
             this(UUID.randomUUID(), product, quantity, price, "PENDING");
@@ -69,10 +61,6 @@ public class AdvancedAnnotationExample extends Application {
 
     public record CreateOrderRequest(String product, int quantity, double price) {}
     public record UpdateStatusRequest(String status) {}
-
-    // ============================================================
-    // Custom Filters
-    // ============================================================
 
     public static class TimingFilter implements HttpFilter {
         @Override
@@ -114,10 +102,6 @@ public class AdvancedAnnotationExample extends Application {
             return next.next(ctx);
         }
     }
-
-    // ============================================================
-    // Services with Dependency Injection
-    // ============================================================
 
     @RestService
     @Lifecycle(stage = LifecycleStage.INIT)
@@ -178,10 +162,6 @@ public class AdvancedAnnotationExample extends Application {
             System.out.printf("[NOTIFICATION] Order %s: %s%n", orderId, event);
         }
     }
-
-    // ============================================================
-    // Order Controller with Advanced Features
-    // ============================================================
 
     @RestController
     @Filter(CorsFilter.class)  // Applied to all routes in this controller
@@ -274,10 +254,6 @@ public class AdvancedAnnotationExample extends Application {
         }
     }
 
-    // ============================================================
-    // Admin Controller with Role-based Access
-    // ============================================================
-
     @RestController
     @Authenticated
     @Requires("admin")
@@ -301,10 +277,6 @@ public class AdvancedAnnotationExample extends Application {
             ));
         }
     }
-
-    // ============================================================
-    // WebSocket Chat Controller
-    // ============================================================
 
     @RestController
     public static class ChatController {
@@ -344,10 +316,6 @@ public class AdvancedAnnotationExample extends Application {
         }
     }
 
-    // ============================================================
-    // Exception Handler
-    // ============================================================
-
     @ExceptionHandler
     public static class GlobalExceptionHandler {
 
@@ -361,10 +329,6 @@ public class AdvancedAnnotationExample extends Application {
             return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
         }
     }
-
-    // ============================================================
-    // Application Configuration
-    // ============================================================
 
     @Override
     protected void configure(MagnesiumRuntime runtime) {

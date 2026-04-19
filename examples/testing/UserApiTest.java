@@ -93,10 +93,6 @@ class UserApiTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Approach 1: Using @MagnesiumTest with JUnit 5 Extension
-    // ═══════════════════════════════════════════════════════════════════════
-
     @ExtendWith(MagnesiumExtension.class)
     @MagnesiumTest(TestApplication.class)
     static class IntegrationTests {
@@ -157,10 +153,6 @@ class UserApiTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Approach 2: Manual TestServer Management
-    // ═══════════════════════════════════════════════════════════════════════
-
     @Test
     void manualServerLifecycle() throws Exception {
         // For fine-grained control, manage the server yourself
@@ -187,10 +179,6 @@ class UserApiTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Approach 3: Using Standard Java HTTP Client
-    // ═══════════════════════════════════════════════════════════════════════
-
     @Test
     void usingRawHttpClient() throws Exception {
         try (TestServer server = TestServer.run(new TestApplication())) {
@@ -208,10 +196,6 @@ class UserApiTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Approach 4: Async Testing
-    // ═══════════════════════════════════════════════════════════════════════
-
     @Test
     void asyncRequest() throws Exception {
         try (TestServer server = TestServer.run(new TestApplication())) {
@@ -227,10 +211,6 @@ class UserApiTest {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // Error Handling Tests
-    // ═══════════════════════════════════════════════════════════════════════
-
     @Test
     void testErrorResponse() throws Exception {
         try (TestServer server = TestServer.run(new TestApplication())) {
@@ -242,10 +222,6 @@ class UserApiTest {
                 .expectBodyContains("Not Found");
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // Header Testing
-    // ═══════════════════════════════════════════════════════════════════════
 
     @Test
     void testCustomHeaders() throws Exception {

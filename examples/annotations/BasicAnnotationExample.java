@@ -17,16 +17,8 @@ import java.util.concurrent.Executors;
  */
 public class BasicAnnotationExample extends Application {
 
-    // ============================================================
-    // Domain Models
-    // ============================================================
-
     public record User(String id, String name, String email) {}
     public record CreateUserRequest(String name, String email) {}
-
-    // ============================================================
-    // Services (Auto-registered with @RestService)
-    // ============================================================
 
     @RestService
     public static class UserService {
@@ -128,10 +120,6 @@ public class BasicAnnotationExample extends Application {
         }
     }
 
-    // ============================================================
-    // Admin Controller with authentication requirement
-    // ============================================================
-
     @RestController
     @Authenticated  // All routes require authentication
     public static class AdminController {
@@ -145,10 +133,6 @@ public class BasicAnnotationExample extends Application {
             ));
         }
     }
-
-    // ============================================================
-    // Application Configuration
-    // ============================================================
 
     @Override
     protected void configure(MagnesiumRuntime runtime) {
