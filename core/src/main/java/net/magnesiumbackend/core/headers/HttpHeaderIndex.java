@@ -161,6 +161,14 @@ public final class HttpHeaderIndex {
         }
     }
 
+    public void set(int headerId, String value) {
+        headersById[headerId] = Slice.of(value);
+    }
+
+    public void set(String name, byte[] value) {
+        set(name, Slice.of(value));
+    }
+
     public void set(String name, String value) {
         set(name, Slice.of(value));
     }
