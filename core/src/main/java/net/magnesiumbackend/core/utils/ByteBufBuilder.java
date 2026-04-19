@@ -137,13 +137,16 @@ public final class ByteBufBuilder implements AutoCloseable {
         buf[pos++] = b;
     }
 
+    public void append(char c) {
+        ensure(1);
+        buf[pos++] = (byte) (c & 0xFF);
+    }
+
     public void append(byte[] bytes) {
         ensure(bytes.length);
         System.arraycopy(bytes, 0, buf, pos, bytes.length);
         pos += bytes.length;
     }
-
-
 
     @Contract(value = " -> new", pure = true)
     public byte @NotNull [] build() {
