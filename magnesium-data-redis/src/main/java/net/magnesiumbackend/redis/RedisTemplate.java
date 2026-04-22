@@ -69,8 +69,6 @@ public class RedisTemplate<K, V> {
         this(redisService, jsonProvider, keyType, valueType, null);
     }
 
-    // ========== Basic Operations ==========
-
     /**
      * Sets a value with optional TTL.
      */
@@ -78,12 +76,14 @@ public class RedisTemplate<K, V> {
         String redisKey = serializeKey(key);
         String redisValue = jsonProvider.toJson(value);
 
-        RedisCommands<String, String> commands = redisService.sync();
-        if (ttl != null) {
-            commands.setex(redisKey, ttl.getSeconds(), redisValue);
-        } else {
-            commands.set(redisKey, redisValue);
-        }
+        redisService.withSync(commands -> {
+            if (ttl != null) {
+                commands.setex(redisKey, ttl.getSeconds(), redisValue);
+            } else {
+                commands.set(redisKey, redisValue);
+            }
+            return null;
+        });
     }
 
     /**
@@ -100,7 +100,7 @@ public class RedisTemplate<K, V> {
      */
     public @Nullable V get(@NotNull K key) {
         String redisKey = serializeKey(key);
-        String value = redisService.sync().get(redisKey);
+        String value = redisService.withSync(commands -> commands.get(redisKey));
         return value != null ? jsonProvider.fromJson(value, valueType) : null;
     }
 
@@ -113,7 +113,9 @@ public class RedisTemplate<K, V> {
             String s = serializeKey(k);
             redisKeys.add(s);
         }
-        List<KeyValue<String, String>> results = redisService.sync().mget(redisKeys.toArray(new String[0]));
+        List<KeyValue<String, String>> results = redisService.withSync(
+            commands -> commands.mget(redisKeys.toArray(new String[0]))
+        );
 
         Map<K, V> map = new HashMap<>(results.size());
         for (KeyValue<String, String> kv : results) {
@@ -133,7 +135,7 @@ public class RedisTemplate<K, V> {
      */
     public boolean delete(@NotNull K key) {
         String redisKey = serializeKey(key);
-        Long deleted = redisService.sync().del(redisKey);
+        Long deleted = redisService.withSync(commands -> commands.del(redisKey));
         return deleted != null && deleted > 0;
     }
 
@@ -143,8 +145,14 @@ public class RedisTemplate<K, V> {
      * @return number of deleted keys
      */
     public long delete(@NotNull Set<K> keys) {
-        String[] redisKeys = keys.stream().map(this::serializeKey).toArray(String[]::new);
-        return redisService.sync().del(redisKeys);
+        String[] redisKeys = new String[keys.size()];
+
+        int i = 0;
+        for (K key : keys) {
+            redisKeys[i] = serializeKey(key);
+            i++;
+        }
+        return redisService.withSync(commands -> commands.del(redisKeys));
     }
 
     /**
@@ -152,7 +160,7 @@ public class RedisTemplate<K, V> {
      */
     public boolean hasKey(@NotNull K key) {
         String redisKey = serializeKey(key);
-        return redisService.sync().exists(redisKey) > 0;
+        return redisService.withSync(commands -> commands.exists(redisKey)) > 0;
     }
 
     /**
@@ -160,7 +168,7 @@ public class RedisTemplate<K, V> {
      */
     public boolean expire(@NotNull K key, @NotNull Duration ttl) {
         String redisKey = serializeKey(key);
-        return redisService.sync().expire(redisKey, ttl.getSeconds());
+        return redisService.withSync(commands -> commands.expire(redisKey, ttl.getSeconds()));
     }
 
     /**
@@ -168,17 +176,15 @@ public class RedisTemplate<K, V> {
      */
     public long getExpire(@NotNull K key) {
         String redisKey = serializeKey(key);
-        return redisService.sync().ttl(redisKey);
+        return redisService.withSync(commands -> commands.ttl(redisKey));
     }
-
-    // ========== Increment/Decrement ==========
 
     /**
      * Increments a numeric value.
      */
     public long increment(@NotNull K key) {
         String redisKey = serializeKey(key);
-        return redisService.sync().incr(redisKey);
+        return redisService.withSync(commands -> commands.incr(redisKey));
     }
 
     /**
@@ -186,7 +192,7 @@ public class RedisTemplate<K, V> {
      */
     public long increment(@NotNull K key, long delta) {
         String redisKey = serializeKey(key);
-        return redisService.sync().incrby(redisKey, delta);
+        return redisService.withSync(commands -> commands.incrby(redisKey, delta));
     }
 
     /**
@@ -194,17 +200,15 @@ public class RedisTemplate<K, V> {
      */
     public long decrement(@NotNull K key) {
         String redisKey = serializeKey(key);
-        return redisService.sync().decr(redisKey);
+        return redisService.withSync(commands -> commands.decr(redisKey));
     }
-
-    // ========== List Operations ==========
 
     /**
      * Pushes value to left of list.
      */
     public long leftPush(@NotNull K key, @NotNull V value) {
         String redisKey = serializeKey(key);
-        return redisService.sync().lpush(redisKey, jsonProvider.toJson(value));
+        return redisService.withSync(commands -> commands.lpush(redisKey, jsonProvider.toJson(value)));
     }
 
     /**
@@ -212,7 +216,7 @@ public class RedisTemplate<K, V> {
      */
     public long rightPush(@NotNull K key, @NotNull V value) {
         String redisKey = serializeKey(key);
-        return redisService.sync().rpush(redisKey, jsonProvider.toJson(value));
+        return redisService.withSync(commands -> commands.rpush(redisKey, jsonProvider.toJson(value)));
     }
 
     /**
@@ -220,7 +224,7 @@ public class RedisTemplate<K, V> {
      */
     public @Nullable V leftPop(@NotNull K key) {
         String redisKey = serializeKey(key);
-        String value = redisService.sync().lpop(redisKey);
+        String value = redisService.withSync(commands -> commands.lpop(redisKey));
         return value != null ? jsonProvider.fromJson(value, valueType) : null;
     }
 
@@ -229,7 +233,7 @@ public class RedisTemplate<K, V> {
      */
     public @Nullable V rightPop(@NotNull K key) {
         String redisKey = serializeKey(key);
-        String value = redisService.sync().rpop(redisKey);
+        String value = redisService.withSync(commands -> commands.rpop(redisKey));
         return value != null ? jsonProvider.fromJson(value, valueType) : null;
     }
 
@@ -238,7 +242,7 @@ public class RedisTemplate<K, V> {
      */
     public @NotNull List<V> range(@NotNull K key, long start, long end) {
         String redisKey = serializeKey(key);
-        List<String> values = redisService.sync().lrange(redisKey, start, end);
+        List<String> values = redisService.withSync(commands -> commands.lrange(redisKey, start, end));
         List<V> list = new ArrayList<>(values.size());
         for (String v : values) {
             V fromJson = jsonProvider.fromJson(v, valueType);
@@ -246,8 +250,6 @@ public class RedisTemplate<K, V> {
         }
         return list;
     }
-
-    // ========== Set Operations ==========
 
     /**
      * Adds member to set.
@@ -260,7 +262,7 @@ public class RedisTemplate<K, V> {
         for (int i = 0; i < length; i++) {
             values[i] = jsonProvider.toJson(members[i]);
         }
-        return redisService.sync().sadd(redisKey, values);
+        return redisService.withSync(commands -> commands.sadd(redisKey, values));
     }
 
     /**
@@ -275,7 +277,7 @@ public class RedisTemplate<K, V> {
         for (int i = 0; i < length; i++) {
             values[i] = jsonProvider.toJson(members[i]);
         }
-        return redisService.sync().srem(redisKey, values);
+        return redisService.withSync(commands -> commands.srem(redisKey, values));
     }
 
     /**
@@ -283,7 +285,7 @@ public class RedisTemplate<K, V> {
      */
     public @NotNull Set<V> setMembers(@NotNull K key) {
         String redisKey = serializeKey(key);
-        Set<String> members = redisService.sync().smembers(redisKey);
+        Set<String> members = redisService.withSync(commands -> commands.smembers(redisKey));
         Set<V> set = new HashSet<>(members.size());
         for (String v : members) {
             V fromJson = jsonProvider.fromJson(v, valueType);
@@ -297,17 +299,15 @@ public class RedisTemplate<K, V> {
      */
     public boolean isMember(@NotNull K key, @NotNull V member) {
         String redisKey = serializeKey(key);
-        return redisService.sync().sismember(redisKey, jsonProvider.toJson(member));
+        return redisService.withSync(commands -> commands.sismember(redisKey, jsonProvider.toJson(member)));
     }
-
-    // ========== Sorted Set Operations ==========
 
     /**
      * Adds member to sorted set with score.
      */
     public boolean addToZSet(@NotNull K key, @NotNull V member, double score) {
         String redisKey = serializeKey(key);
-        Long result = redisService.sync().zadd(redisKey, score, jsonProvider.toJson(member));
+        Long result = redisService.withSync(commands -> commands.zadd(redisKey, score, jsonProvider.toJson(member)));
         return result != null && result > 0;
     }
 
@@ -316,7 +316,7 @@ public class RedisTemplate<K, V> {
      */
     public @NotNull List<V> zRangeByScore(@NotNull K key, double min, double max) {
         String redisKey = serializeKey(key);
-        List<String> members = redisService.sync().zrangebyscore(redisKey, min, max);
+        List<String> members = redisService.withSync(commands -> commands.zrangebyscore(redisKey, min, max));
         List<V> list = new ArrayList<>(members.size());
         for (String v : members) {
             V fromJson = jsonProvider.fromJson(v, valueType);
@@ -330,7 +330,9 @@ public class RedisTemplate<K, V> {
      */
     public List<Value<V>> zRangeWithScores(@NotNull K key, long start, long end) {
         String redisKey = serializeKey(key);
-        List<ScoredValue<String>> scored = redisService.sync().zrangeWithScores(redisKey, start, end);
+        List<ScoredValue<String>> scored = redisService.withSync(
+            commands -> commands.zrangeWithScores(redisKey, start, end)
+        );
         List<Value<V>> list = new ArrayList<>(scored.size());
         for (ScoredValue<String> sv : scored) {
             Value<V> vValue = ScoredValue.fromNullable(sv.getScore(), jsonProvider.fromJson(sv.getValue(), valueType));
@@ -351,17 +353,15 @@ public class RedisTemplate<K, V> {
         for (int i = 0; i < length; i++) {
             values[i] = jsonProvider.toJson(members[i]);
         }
-        return redisService.sync().zrem(redisKey, values);
+        return redisService.withSync(commands -> commands.zrem(redisKey, values));
     }
-
-    // ========== Hash Operations ==========
 
     /**
      * Puts a hash entry.
      */
     public boolean putHash(@NotNull K key, @NotNull String hashKey, @NotNull V value) {
         String redisKey = serializeKey(key);
-        return redisService.sync().hset(redisKey, hashKey, jsonProvider.toJson(value));
+        return redisService.withSync(commands -> commands.hset(redisKey, hashKey, jsonProvider.toJson(value)));
     }
 
     /**
@@ -369,7 +369,7 @@ public class RedisTemplate<K, V> {
      */
     public @Nullable V getHash(@NotNull K key, @NotNull String hashKey) {
         String redisKey = serializeKey(key);
-        String value = redisService.sync().hget(redisKey, hashKey);
+        String value = redisService.withSync(commands -> commands.hget(redisKey, hashKey));
         return value != null ? jsonProvider.fromJson(value, valueType) : null;
     }
 
@@ -378,7 +378,7 @@ public class RedisTemplate<K, V> {
      */
     public @NotNull Map<String, V> getHashAll(@NotNull K key) {
         String redisKey = serializeKey(key);
-        Map<String, String> entries = redisService.sync().hgetall(redisKey);
+        Map<String, String> entries = redisService.withSync(commands -> commands.hgetall(redisKey));
         Map<String, V> result = new HashMap<>(entries.size());
         for (Map.Entry<String, String> entry : entries.entrySet()) {
             result.put(entry.getKey(), jsonProvider.fromJson(entry.getValue(), valueType));
@@ -391,10 +391,8 @@ public class RedisTemplate<K, V> {
      */
     public long deleteHash(@NotNull K key, @NotNull String... hashKeys) {
         String redisKey = serializeKey(key);
-        return redisService.sync().hdel(redisKey, hashKeys);
+        return redisService.withSync(commands -> commands.hdel(redisKey, hashKeys));
     }
-
-    // ========== Utility ==========
 
     private String serializeKey(K key) {
         String keyStr;

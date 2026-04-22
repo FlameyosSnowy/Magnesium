@@ -74,7 +74,6 @@ public class RedisExtension implements MagnesiumExtension {
      *
      * @param <K> key type
      * @param <V> value type
-     * @param keyType key class
      * @param valueType value class
      * @param keyPrefix optional key prefix
      * @return reactive operations instance
@@ -82,12 +81,11 @@ public class RedisExtension implements MagnesiumExtension {
     public static <K, V> net.magnesiumbackend.redis.reactive.ReactiveRedisOperations<K, V> createReactive(
         RedisService redisService,
         JsonProvider jsonProvider,
-        Class<K> keyType,
         Class<V> valueType,
         String keyPrefix
     ) {
         return new net.magnesiumbackend.redis.reactive.ReactiveRedisOperations<>(
-            redisService, jsonProvider, keyType, valueType, keyPrefix);
+            redisService, jsonProvider, valueType, keyPrefix);
     }
 
     @Override

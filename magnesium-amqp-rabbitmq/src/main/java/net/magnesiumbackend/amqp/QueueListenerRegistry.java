@@ -1,10 +1,8 @@
 package net.magnesiumbackend.amqp;
 
-import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DeliverCallback;
 import com.rabbitmq.client.Delivery;
-import com.rabbitmq.client.Envelope;
 import net.magnesiumbackend.amqp.annotations.DeadLetterQueue;
 import net.magnesiumbackend.amqp.annotations.QueueArgument;
 import net.magnesiumbackend.amqp.annotations.QueueListener;
@@ -97,7 +95,7 @@ public class QueueListenerRegistry implements Startable, Stoppable {
         Channel channel = rabbitMQService.getChannel("listener-" + queue);
 
         // Declare queue with arguments
-        Map<String, Object> args = new HashMap<>();
+        Map<String, Object> args = new HashMap<>(listener.arguments().length);
         for (QueueArgument arg : listener.arguments()) {
             args.put(arg.name(), parseArgumentValue(arg.value()));
         }
@@ -120,7 +118,7 @@ public class QueueListenerRegistry implements Startable, Stoppable {
                 @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return net.magnesiumbackend.amqp.annotations.Exchange.class; }
             });
 
-            Map<String, Object> dlqArgs = new HashMap<>();
+            Map<String, Object> dlqArgs = new HashMap<>(4);
             if (dlq.messageTtl() > 0) {
                 dlqArgs.put("x-message-ttl", dlq.messageTtl());
             }

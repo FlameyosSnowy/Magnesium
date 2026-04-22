@@ -1,8 +1,8 @@
 package net.magnesiumbackend.redis;
 
 import io.lettuce.core.AbstractRedisClient;
-import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
@@ -12,8 +12,6 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import io.lettuce.core.masterreplica.MasterReplica;
-import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.DefaultClientResources;
 import io.lettuce.core.support.ConnectionPoolSupport;
@@ -23,9 +21,10 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.jetbrains.annotations.NotNull;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * Core Redis service managing connections using Lettuce driver.
@@ -47,7 +46,6 @@ public class RedisService implements Startable, Stoppable {
     public RedisService(@NotNull RedisConfiguration configuration) {
         this.configuration = configuration;
         this.clientResources = DefaultClientResources.builder()
-            .clientName(configuration.getClientName())
             .build();
     }
 
@@ -67,7 +65,8 @@ public class RedisService implements Startable, Stoppable {
             .withHost(configuration.getHost())
             .withPort(configuration.getPort())
             .withDatabase(configuration.getDatabase())
-            .withTimeout(configuration.getTimeout());
+            .withTimeout(configuration.getTimeout())
+            .withClientName(configuration.getClientName());
 
         if (!configuration.getPassword().isEmpty()) {
             uriBuilder.withPassword(configuration.getPassword().toCharArray());
@@ -176,51 +175,6 @@ public class RedisService implements Startable, Stoppable {
     }
 
     /**
-     * Gets a synchronous command interface for single node or sentinel.
-     *
-     * @return synchronous Redis commands
-     */
-    public @NotNull RedisCommands<String, String> sync() {
-        if (configuration.isClusterEnabled()) {
-            throw new IllegalStateException("Use syncCluster() for cluster mode");
-        }
-
-        try {
-            if (connectionPool != null) {
-                StatefulRedisConnection<String, String> conn = connectionPool.borrowObject();
-                return conn.sync();
-            } else {
-                // Sentinel mode without pooling - create connection on demand
-                return ((RedisClient) redisClient).connect().sync();
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get Redis connection", e);
-        }
-    }
-
-    /**
-     * Gets an asynchronous command interface for single node or sentinel.
-     *
-     * @return asynchronous Redis commands
-     */
-    public @NotNull RedisAsyncCommands<String, String> async() {
-        if (configuration.isClusterEnabled()) {
-            throw new IllegalStateException("Use asyncCluster() for cluster mode");
-        }
-
-        try {
-            if (connectionPool != null) {
-                StatefulRedisConnection<String, String> conn = connectionPool.borrowObject();
-                return conn.async();
-            } else {
-                return ((RedisClient) redisClient).connect().async();
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get Redis connection", e);
-        }
-    }
-
-    /**
      * Gets synchronous cluster commands.
      *
      * @return cluster-specific synchronous commands
@@ -253,16 +207,93 @@ public class RedisService implements Startable, Stoppable {
         return redisClient;
     }
 
-    /**
-     * Checks if connected to Redis.
-     *
-     * @return true if connection is open
-     */
     public boolean isConnected() {
-        if (configuration.isClusterEnabled()) {
-            return clusterConnection != null && clusterConnection.isOpen();
+        try {
+            if (configuration.isClusterEnabled()) {
+                return clusterConnection != null && clusterConnection.isOpen();
+            }
+
+            if (connectionPool != null) {
+                try (var conn = connectionPool.borrowObject()) {
+                    return conn.isOpen();
+                }
+            }
+
+            // sentinel fallback
+            try (var conn = ((RedisClient) redisClient).connect()) {
+                return conn.isOpen();
+            }
+
+        } catch (Exception e) {
+            return false;
         }
-        return redisClient != null && redisClient.isOpen();
+    }
+
+    public <T> T withSync(Function<RedisCommands<String, String>, T> fn) {
+        try {
+            StatefulRedisConnection<String, String> conn =
+                connectionPool != null
+                    ? connectionPool.borrowObject()
+                    : ((RedisClient) redisClient).connect();
+
+            try {
+                return fn.apply(conn.sync());
+            } finally {
+                if (connectionPool != null) {
+                    connectionPool.returnObject(conn);
+                } else {
+                    conn.close();
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <T> CompletableFuture<T> withAsync(
+        Function<RedisAsyncCommands<String, String>, RedisFuture<T>> fn
+    ) {
+        try {
+            StatefulRedisConnection<String, String> conn =
+                connectionPool != null
+                    ? connectionPool.borrowObject()
+                    : ((RedisClient) redisClient).connect();
+
+            try {
+                RedisFuture<T> redisFuture = fn.apply(conn.async());
+
+                CompletableFuture<T> future = new CompletableFuture<>();
+
+                redisFuture.whenComplete((result, error) -> {
+                    try {
+                        if (error != null) {
+                            future.completeExceptionally(error);
+                        } else {
+                            future.complete(result);
+                        }
+                    } finally {
+                        if (connectionPool != null) {
+                            connectionPool.returnObject(conn);
+                        } else {
+                            conn.close();
+                        }
+                    }
+                });
+
+                return future;
+
+            } catch (Throwable t) {
+                if (connectionPool != null) {
+                    connectionPool.returnObject(conn);
+                } else {
+                    conn.close();
+                }
+                throw t;
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

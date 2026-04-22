@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 /**
  * Core RabbitMQ service managing connections and channels.
@@ -60,8 +61,9 @@ public class RabbitMQService implements Startable, Stoppable {
         if (configuration.isClusterEnabled() && configuration.getClusterAddresses() != null) {
             // Cluster connection
             String[] addresses = configuration.getClusterAddresses().split(",");
-            com.rabbitmq.client.Address[] addrArray = new com.rabbitmq.client.Address[addresses.length];
-            for (int i = 0; i < addresses.length; i++) {
+            int length = addresses.length;
+            com.rabbitmq.client.Address[] addrArray = new com.rabbitmq.client.Address[length];
+            for (int i = 0; i < length; i++) {
                 String[] parts = addresses[i].trim().split(":");
                 addrArray[i] = new com.rabbitmq.client.Address(parts[0], Integer.parseInt(parts[1]));
             }
@@ -179,6 +181,16 @@ public class RabbitMQService implements Startable, Stoppable {
      */
     public boolean isConnected() {
         return connection != null && connection.isOpen();
+    }
+
+    public void subscribe(@NotNull String queue, @NotNull String consumerTag, @NotNull Consumer<String> consumer) throws IOException {
+        Channel channel = getChannel("admin");
+        channel.basicConsume(queue, (tag, message) -> consumer.accept(new String(message.getBody())), (tag, delivery) -> {});
+    }
+
+    public void unsubscribe(@NotNull String queue, @NotNull String consumerTag) throws IOException {
+        Channel channel = getChannel("admin");
+        channel.basicCancel(consumerTag);
     }
 
     /**
