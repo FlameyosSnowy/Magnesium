@@ -24,19 +24,18 @@ public final class CompletionTree {
 
         int start = 0;
         for (int i = 0; i <= name.length(); i++) {
-            if (i == name.length() || name.charAt(i) == ':') {
+            if (i == name.length() || name.charAt(i) == ':' || name.charAt(i) == ' ') {
                 String part = name.substring(start, i);
                 current = current.getOrCreate(part);
                 start = i + 1;
             }
         }
 
-        current.isCommand = true;
-        current.command = ir;
-
         for (ArgumentSchema.ArgumentDef arg : ir.arguments().all().values()) {
             current.getOrCreate("--" + arg.name());
         }
+        current.isCommand = true;
+        current.command = ir;
     }
 
     public @NotNull List<String> complete(@NotNull String prefix, int cursor) {
@@ -48,16 +47,15 @@ public final class CompletionTree {
         int len = Math.min(cursor, prefix.length());
 
         String lastToken = "";
-        int lastStart = 0;
 
         for (int i = 0; i <= len; i++) {
-            if (i == len || prefix.charAt(i) == ' ') {
+            if (i == len || prefix.charAt(i) == ' ' || prefix.charAt(i) == ':') {
+
                 if (start < i) {
                     String token = prefix.substring(start, i);
 
                     if (i == len) {
                         lastToken = token;
-                        lastStart = start;
                         break;
                     }
 
@@ -70,16 +68,15 @@ public final class CompletionTree {
             }
         }
 
-        // last token handling (partial match only, no scan fallback)
-        if (lastToken.isEmpty() && lastStart < len) {
-            lastToken = prefix.substring(lastStart, len);
+        if (lastToken.isEmpty() && start < len) {
+            lastToken = prefix.substring(start, len);
         }
 
         int count = 0;
         for (Node child : current.children.values()) {
-            if (child.name.startsWith(lastToken)) {
+            if (lastToken.isEmpty() || child.name.startsWith(lastToken)) {
                 buffer.add(child.name);
-                if (++count == 64) break; // hard cap avoids runaway allocations
+                if (++count == 64) break;
             }
         }
 

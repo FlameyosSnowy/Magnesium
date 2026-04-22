@@ -23,7 +23,7 @@ import java.lang.annotation.*;
  * @see Command
  */
 @Retention(RetentionPolicy.SOURCE)
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Documented
 public @interface Arg {
 
@@ -32,7 +32,7 @@ public @interface Arg {
      *
      * @return the argument name
      */
-    String name() default "";
+    String value() default "";
 
     /**
      * Whether this argument is required.

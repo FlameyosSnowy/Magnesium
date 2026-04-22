@@ -4,7 +4,6 @@ import net.magnesiumbackend.shell.annotation.Arg;
 import net.magnesiumbackend.shell.annotation.Command;
 import net.magnesiumbackend.shell.ir.ArgumentSchema;
 import net.magnesiumbackend.shell.ir.CommandIR;
-import net.magnesiumbackend.shell.ir.ExecutionMode;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -86,7 +85,7 @@ public class ShellCommandProcessor extends AbstractProcessor {
             }
         }
 
-        return CommandIR.builder(annotation.name())
+        return CommandIR.builder(annotation.value())
             .description(annotation.description())
             .arguments(schemaBuilder.build())
             .handlerClass(handlerClass)
@@ -97,7 +96,7 @@ public class ShellCommandProcessor extends AbstractProcessor {
     }
 
     private void processArgument(VariableElement field, Arg annotation, ArgumentSchema.Builder builder) {
-        String name = annotation.name().isEmpty() ? field.getSimpleName().toString() : annotation.name();
+        String name = annotation.value().isEmpty() ? field.getSimpleName().toString() : annotation.value();
         Class<?> type = getBoxedType(field.asType().toString());
 
         Object defaultValue = null;

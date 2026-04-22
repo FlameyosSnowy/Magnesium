@@ -33,7 +33,7 @@ public @interface Command {
      *
      * @return the command name
      */
-    String name();
+    String value();
 
     /**
      * Command description for help text.

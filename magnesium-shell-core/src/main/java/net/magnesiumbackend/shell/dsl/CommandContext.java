@@ -3,8 +3,10 @@ package net.magnesiumbackend.shell.dsl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Runtime context for command execution.
@@ -26,7 +28,7 @@ public final class CommandContext {
 
     public CommandContext(@NotNull String commandName, @NotNull Map<String, Object> arguments) {
         this.commandName = Objects.requireNonNull(commandName, "commandName");
-        this.arguments = Map.copyOf(arguments);
+        this.arguments = new HashMap<>(arguments);
     }
 
     /**
@@ -45,8 +47,36 @@ public final class CommandContext {
      * @return argument value or null
      */
     @SuppressWarnings("unchecked")
-    public <T> @Nullable T arg(@NotNull String name) {
+    public <T> @Nullable T get(@NotNull String name) {
         return (T) arguments.get(name);
+    }
+
+    public <T> @Nullable T get(@NotNull String name, @NotNull Class<T> clazz) {
+        return clazz.cast(arguments.get(name));
+    }
+
+    public boolean has(@NotNull String name) {
+        return arguments.containsKey(name);
+    }
+
+    public <T> T getOrDefault(@NotNull String name, T defaultValue) {
+        return (T) arguments.getOrDefault(name, defaultValue);
+    }
+
+    public Set<String> keySet() {
+        return arguments.keySet();
+    }
+
+    public boolean isEmpty() {
+        return arguments.isEmpty();
+    }
+
+    public int size() {
+        return arguments.size();
+    }
+
+    public void put(@NotNull String name, @NotNull Object value) {
+        arguments.put(name, value);
     }
 
     /**
@@ -78,7 +108,7 @@ public final class CommandContext {
      *
      * @return unmodifiable map of arguments
      */
-    public @NotNull Map<String, Object> allArgs() {
+    public @NotNull Map<String, Object> arguments() {
         return arguments;
     }
 

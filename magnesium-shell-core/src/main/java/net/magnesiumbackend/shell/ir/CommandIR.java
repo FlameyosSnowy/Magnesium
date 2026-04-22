@@ -45,6 +45,30 @@ public final class CommandIR {
         this.aliases = List.copyOf(builder.aliases);
     }
 
+    public CommandIR(String name, String description, ArgumentSchema arguments, String handlerClass, String handlerMethod, ExecutionMode executionMode, String amqpBinding, List<String> aliases) {
+        this.name = name;
+        this.description = description;
+        this.arguments = arguments;
+        this.handlerClass = handlerClass;
+        this.executionMode = executionMode;
+        this.handlerMethod = handlerMethod;
+        this.amqpBinding = amqpBinding;
+        this.aliases = aliases;
+    }
+
+    public CommandIR(String name, ArgumentSchema msg, ExecutionMode executionMode) {
+        this.name = name;
+        this.arguments = msg;
+        this.executionMode = executionMode;
+
+        this.aliases = List.of();
+        this.amqpBinding = "";
+        this.handlerClass = "";
+        this.handlerMethod = "";
+        this.description = "";
+    }
+
+
     /**
      * Creates a new builder.
      *
@@ -145,7 +169,28 @@ public final class CommandIR {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof CommandIR commandIR)) return false;
+        if (this == commandIR) return true;
+
+        return Objects.equals(name, commandIR.name) && Objects.equals(description, commandIR.description) && Objects.equals(arguments, commandIR.arguments) && Objects.equals(handlerClass, commandIR.handlerClass) && Objects.equals(handlerMethod, commandIR.handlerMethod) && executionMode == commandIR.executionMode && Objects.equals(amqpBinding, commandIR.amqpBinding) && Objects.equals(aliases, commandIR.aliases);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(name);
+        result = 31 * result + Objects.hashCode(description);
+        result = 31 * result + Objects.hashCode(arguments);
+        result = 31 * result + Objects.hashCode(handlerClass);
+        result = 31 * result + Objects.hashCode(handlerMethod);
+        result = 31 * result + Objects.hashCode(executionMode);
+        result = 31 * result + Objects.hashCode(amqpBinding);
+        result = 31 * result + Objects.hashCode(aliases);
+        return result;
+    }
+
+    @Override
     public String toString() {
-        return "CommandIR{name='" + name + "', mode=" + executionMode + "}";
+        return "CommandIR{name='" + name + "', mode=" + executionMode + ", args=" + arguments + ", aliases=" + aliases + "}";
     }
 }

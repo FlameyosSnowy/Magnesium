@@ -57,6 +57,10 @@ public final class ArgumentSchema {
         return arguments.get(name);
     }
 
+    public boolean has(@NotNull String name) {
+        return arguments.containsKey(name);
+    }
+
     /**
      * Returns all argument definitions.
      *
