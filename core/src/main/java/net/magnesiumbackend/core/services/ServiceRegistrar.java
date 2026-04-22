@@ -82,7 +82,7 @@ public final class ServiceRegistrar {
         return this;
     }
 
-    Map<Class<?>, Function<ServiceContext, ?>> factories() {
+    public Map<Class<?>, Function<ServiceContext, ?>> factories() {
         return factories;
     }
 }
