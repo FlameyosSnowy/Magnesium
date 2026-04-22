@@ -3,6 +3,8 @@ package net.magnesiumbackend.core.config;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -151,5 +153,17 @@ public interface ConfigSource {
         String raw = getString(key);
         if (raw == null) return null;
         return Enum.valueOf(enumType, raw);
+    }
+
+    static ConfigSource ofMap(String name, Map<String, Object> map) {
+        return new MapConfigSource(name, map);
+    }
+
+    static ConfigSource ofMap(Map<String, Object> map) {
+        return new MapConfigSource("map", map);
+    }
+
+    static ConfigSource empty() {
+        return new MapConfigSource("empty", new HashMap<>());
     }
 }

@@ -1,6 +1,7 @@
 package net.magnesiumbackend.core.annotations.enums;
 
 import net.magnesiumbackend.core.annotations.Lifecycle;
+import net.magnesiumbackend.core.lifecycle.LifecycleDefinition;
 import net.magnesiumbackend.core.lifecycle.LifecycleGraph;
 import net.magnesiumbackend.core.lifecycle.LifecycleRegistry;
 

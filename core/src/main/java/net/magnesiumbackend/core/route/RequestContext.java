@@ -56,7 +56,7 @@ import java.util.Map;
  * @see Principal
  * @see CancellationToken
  */
-public final class RequestContext {
+public class RequestContext {
 
     private final Request request;
 
