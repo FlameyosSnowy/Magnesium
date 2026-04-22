@@ -49,6 +49,18 @@ public final class LifecycleDefinition {
         this.initializer = builder.initializer;
     }
 
+    public LifecycleDefinition(LifecycleStage stage, Class<?> component, Set<Class<?>> dependencies, boolean async, Consumer<Object> initializer) {
+        this.stage = stage;
+        this.component = component;
+        this.dependencies = dependencies;
+        this.async = async;
+        this.initializer = initializer;
+    }
+
+    public LifecycleDefinition(LifecycleStage stage, Class<?> component, Consumer<Object> initializer) {
+        this(stage, component, new HashSet<>(), false, initializer);
+    }
+
     /**
      * Returns the component class this lifecycle applies to.
      *

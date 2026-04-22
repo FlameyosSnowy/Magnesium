@@ -1,9 +1,10 @@
 package net.magnesiumbackend.processor.generator;
 
+import net.magnesiumbackend.core.annotations.DependsOn;
 import net.magnesiumbackend.core.annotations.Lifecycle;
 import net.magnesiumbackend.core.annotations.OnInitialize;
 import net.magnesiumbackend.core.annotations.enums.LifecycleStage;
-import net.magnesiumbackend.core.lifecycle.LifecycleDefinition;
+import org.jetbrains.annotations.UnknownNullability;
 
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -21,6 +22,7 @@ import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Generates lifecycle metadata and validates lifecycle dependencies at compile time.
@@ -68,15 +70,21 @@ public class LifecycleRegistrationGenerator {
         }
 
         String className = element.getQualifiedName().toString();
+        TypeElement typeElement = elements.getTypeElement(className);
+        if (typeElement == null) {
+            error("Type element not found: " + className, element);
+            return false;
+        }
+
         LifecycleStage stage = annotation.stage();
         boolean async = annotation.async();
 
         // Extract dependencies from annotation
-        List<String> dependencies = extractDependencies(annotation);
+        List<TypeMirror> dependencies = extractDependencies(element);
 
         // Validate no self-dependency
-        for (String dep : dependencies) {
-            if (dep.equals(className)) {
+        for (TypeMirror dep : dependencies) {
+            if (types.isSameType(dep, typeElement.asType())) {
                 error("Self-dependency detected: " + className, element);
                 return false;
             }
@@ -147,31 +155,37 @@ public class LifecycleRegistrationGenerator {
 
         // Check for missing dependencies
         for (LifecycleMetadata data : metadata.values()) {
-            for (String dep : data.dependencies) {
-                if (!metadata.containsKey(dep)) {
+            for (TypeMirror dep : data.dependencies) {
+                if (!metadata.containsKey(toKey(dep))) {
                     errors.add("Missing dependency: " + dep + " required by " + data.className);
                 }
             }
         }
 
         // Detect cycles using DFS
-        Set<String> visited = new HashSet<>();
-        Set<String> recursionStack = new HashSet<>();
+        Set<String> visited = new HashSet<>(32);
+        Set<String> recursionStack = new HashSet<>(32);
 
         for (String className : metadata.keySet()) {
             if (!visited.contains(className)) {
-                List<String> cycle = detectCycle(className, visited, recursionStack, new ArrayList<>());
+                List<String> cycle = detectCycle(
+                    className,
+                    visited,
+                    recursionStack,
+                    new ArrayDeque<>(32)
+                );
+
                 if (cycle != null) {
                     errors.add("Cyclic dependency detected: " + formatCycle(cycle));
-                    break; // Report first cycle found
+                    break;
                 }
             }
         }
 
         // Validate stage ordering (dependencies should be same or earlier stage)
         for (LifecycleMetadata data : metadata.values()) {
-            for (String dep : data.dependencies) {
-                LifecycleMetadata depData = metadata.get(dep);
+            for (TypeMirror dep : data.dependencies) {
+                LifecycleMetadata depData = metadata.get(toKey(dep));
                 if (depData != null && depData.stage.ordinal() > data.stage.ordinal()) {
                     errors.add("Invalid stage ordering: " + data.className +
                               " (" + data.stage + ") depends on " + dep +
@@ -181,6 +195,10 @@ public class LifecycleRegistrationGenerator {
         }
 
         return errors;
+    }
+
+    private String toKey(TypeMirror type) {
+        return type.toString(); // acceptable for annotation processing
     }
 
     /**
@@ -225,7 +243,13 @@ public class LifecycleRegistrationGenerator {
                     writer.write("component=" + data.className + "\n");
                     writer.write("stage=" + data.stage + "\n");
                     writer.write("async=" + data.async + "\n");
-                    writer.write("dependencies=" + String.join(",", data.dependencies) + "\n");
+
+                    StringJoiner joiner = new StringJoiner(",");
+                    for (TypeMirror dependency : data.dependencies) {
+                        String key = toKey(dependency);
+                        joiner.add(key);
+                    }
+                    writer.write("dependencies=" + joiner + "\n");
                     writer.write("\n");
                 }
 
@@ -315,38 +339,50 @@ public class LifecycleRegistrationGenerator {
         }
     }
 
-    private List<String> extractDependencies(Lifecycle annotation) {
-        List<String> deps = new ArrayList<>();
+    private List<TypeMirror> extractDependencies(@UnknownNullability TypeElement element) {
+        DependsOn[] annotation = element.getAnnotationsByType(DependsOn.class);
+        if (annotation.length == 0) {
+            return List.of();
+        }
 
-        try {
-            annotation.dependsOn(); // This throws MirroredTypeException
-        } catch (MirroredTypeException mte) {
-            // Single dependency case (unlikely but handle it)
-            TypeMirror typeMirror = mte.getTypeMirror();
-            if (typeMirror != null) {
-                deps.add(typeMirror.toString());
-            }
-        } catch (IllegalArgumentException e) {
-            // Multiple dependencies - use the class names directly
-            for (Class<?> depClass : annotation.dependsOn()) {
-                deps.add(depClass.getCanonicalName());
-            }
+        List<TypeMirror> deps = new ArrayList<>(annotation.length);
+
+        for (DependsOn dependsOn : annotation) {
+            grabDependency(element, dependsOn, deps);
         }
 
         return deps;
     }
 
-    private List<String> detectCycle(String current, Set<String> visited,
-                                     Set<String> recursionStack, List<String> path) {
+    private static void grabDependency(TypeElement element, DependsOn annotation, List<TypeMirror> deps) {
+        try {
+            annotation.value();
+        } catch (MirroredTypeException mte) {
+            // Single dependency case (unlikely but handle it)
+            TypeMirror typeMirror = mte.getTypeMirror();
+            if (typeMirror != null) {
+                deps.add(typeMirror);
+            }
+        }
+    }
+
+    private List<String> detectCycle(
+        String current,
+        Set<String> visited,
+        Set<String> recursionStack,
+        Deque<String> path
+    ) {
         visited.add(current);
         recursionStack.add(current);
-        path.add(current);
+        path.addLast(current);
 
         LifecycleMetadata data = metadata.get(current);
         if (data != null) {
-            for (String dep : data.dependencies) {
+            for (TypeMirror depMirror : data.dependencies) {
+                String dep = toKey(depMirror);
+
                 if (!metadata.containsKey(dep)) {
-                    continue; // Missing dependency, handled elsewhere
+                    continue; // handled elsewhere
                 }
 
                 if (!visited.contains(dep)) {
@@ -355,9 +391,17 @@ public class LifecycleRegistrationGenerator {
                         return cycle;
                     }
                 } else if (recursionStack.contains(dep)) {
-                    // Found cycle - extract cycle from path
-                    int cycleStart = path.indexOf(dep);
-                    return new ArrayList<>(path.subList(cycleStart, path.size()));
+                    // Extract cycle
+                    List<String> cycle = new ArrayList<>(16);
+                    Iterator<String> it = path.descendingIterator();
+
+                    while (it.hasNext()) {
+                        String node = it.next();
+                        cycle.addFirst(node);
+                        if (node.equals(dep)) break;
+                    }
+
+                    return cycle;
                 }
             }
         }
@@ -436,7 +480,7 @@ public class LifecycleRegistrationGenerator {
     record LifecycleMetadata(
         String className,
         LifecycleStage stage,
-        List<String> dependencies,
+        List<TypeMirror> dependencies,
         boolean async
     ) {}
 }
