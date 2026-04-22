@@ -3,7 +3,7 @@ package net.magnesiumbackend.core.ratelimit;
 import java.time.Duration;
 import java.util.ArrayDeque;
 
-final class WindowState {
+public final class WindowState {
     private final int      limit;
     private final long     windowMs;
     private final RateLimiter.Algorithm algorithm;
@@ -15,7 +15,7 @@ final class WindowState {
     private double tokens;
     private long   lastRefill;
 
-    WindowState(int limit, Duration window, RateLimiter.Algorithm algorithm) {
+    public WindowState(int limit, Duration window, RateLimiter.Algorithm algorithm) {
         this.limit     = limit;
         this.windowMs  = window.toMillis();
         this.algorithm = algorithm;
@@ -23,7 +23,7 @@ final class WindowState {
         this.lastRefill = System.currentTimeMillis();
     }
 
-    synchronized RateLimitResult consume() {
+    public synchronized RateLimitResult consume() {
         return switch (algorithm) {
             case FIXED_WINDOW   -> consumeFixed();
             case SLIDING_WINDOW -> consumeSliding();

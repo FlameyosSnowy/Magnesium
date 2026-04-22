@@ -56,17 +56,22 @@ public final class CircuitBreakerRegistry {
         });
     }
 
+    public CircuitBreaker of(String name) { return getOrCreate(name, b -> {}); }
+
+    public CircuitBreaker remove(String name) { return breakers.remove(name); }
+
+    public void clear() { breakers.clear(); }
+
+    public Map<String, CircuitBreaker> all() { return Collections.unmodifiableMap(breakers); }
+
     /**
      * Gets an existing circuit breaker by name.
      *
      * @param name the circuit breaker identifier
      * @return the circuit breaker instance
-     * @throws IllegalArgumentException if no circuit breaker with that name exists
      */
     public CircuitBreaker get(String name) {
-        CircuitBreaker cb = breakers.get(name);
-        if (cb == null) throw new IllegalArgumentException("No circuit breaker: " + name);
-        return cb;
+        return breakers.get(name);
     }
 
     /**
