@@ -70,6 +70,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
     private final Set<String> applicationPropertiesRegistrations = new HashSet<>(32);
     private final Set<String> lifecycleRegistrations = new HashSet<>(32);
     private final Set<String> rabbitMQRegistrations = new HashSet<>(32);
+    private final java.util.Map<String, String> customReturnResolvers = new java.util.HashMap<>(16);
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -132,6 +133,7 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
         supported.add(OnWebSocketException.class.getCanonicalName());
         supported.add(ApplicationProperties.class.getCanonicalName());
         supported.add(ApplicationProperty.class.getCanonicalName());
+        supported.add(ReturnResolverType.class.getCanonicalName());
         // RabbitMQ annotations
         supported.add(net.magnesiumbackend.amqp.annotations.QueueListener.class.getCanonicalName());
         supported.add(net.magnesiumbackend.amqp.annotations.Exchange.class.getCanonicalName());
@@ -228,7 +230,33 @@ public class MagnesiumBackendProcessor extends AbstractProcessor {
             roundEnvironment.getElementsAnnotatedWith(net.magnesiumbackend.amqp.annotations.QueueListener.class)
         );
 
+        processReturnResolvers(
+            roundEnvironment.getElementsAnnotatedWith(ReturnResolverType.class)
+        );
+
         return true;
+    }
+
+    private void processReturnResolvers(Set<? extends Element> resolvers) {
+        for (Element resolver : resolvers) {
+            if (!(resolver instanceof TypeElement typeElement)) continue;
+
+            ReturnResolverType annotation = typeElement.getAnnotation(ReturnResolverType.class);
+            if (annotation == null) continue;
+
+            try {
+                Class<?> resolvedType = annotation.value();
+                customReturnResolvers.put(resolvedType.getCanonicalName(), typeElement.getQualifiedName().toString());
+            } catch (MirroredTypeException e) {
+                TypeMirror typeMirror = e.getTypeMirror();
+                if (typeMirror instanceof javax.lang.model.type.DeclaredType declared) {
+                    TypeElement typeEl = (TypeElement) declared.asElement();
+                    customReturnResolvers.put(typeEl.getQualifiedName().toString(), typeElement.getQualifiedName().toString());
+                }
+            }
+        }
+
+        this.routeRegistrationGenerator.setCustomResolvers(customReturnResolvers);
     }
 
     private void processRestServices(Set<? extends Element> services) {

@@ -54,7 +54,9 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RouteRegistrationGenerator {
     private final Types    types;
@@ -75,6 +77,7 @@ public class RouteRegistrationGenerator {
     private final TypeElement booleanTypeElement;
     private final TypeElement doubleTypeElement;
     private final TypeElement uuidTypeElement;
+    private java.util.Map<String, String> customResolvers = new HashMap<>();
 
     public RouteRegistrationGenerator(Types types, Filer filer, Elements elements, Messager messager) {
         this.types    = types;
@@ -95,6 +98,10 @@ public class RouteRegistrationGenerator {
         this.booleanTypeElement       = elements.getTypeElement("java.lang.Boolean");
         this.doubleTypeElement        = elements.getTypeElement("java.lang.Double");
         this.uuidTypeElement          = elements.getTypeElement("java.util.UUID");
+    }
+
+    public void setCustomResolvers(java.util.Map<String, String> customResolvers) {
+        this.customResolvers = customResolvers;
     }
 
     public String generate(TypeElement serviceClass) {
@@ -221,9 +228,12 @@ public class RouteRegistrationGenerator {
         boolean returnsCompletableFuture = completableFutureTypeElement != null &&
             types.isAssignable(returnType, completableFutureTypeElement.asType());
 
-        if (!returnsVoid && !returnsResponse && !returnsCompletableFuture && !isJsonConvertible(returnType)) {
+        boolean hasCustomResolver = !returnsVoid && !returnsResponse && !returnsCompletableFuture
+            && findCustomResolver(returnType) != null;
+
+        if (!returnsVoid && !returnsResponse && !returnsCompletableFuture && !isJsonConvertible(returnType) && !hasCustomResolver) {
             error("The return type of a @" + httpMethod + "Route method must be void, Response, CompletableFuture, "
-                + "or a type that JsonProvider can serialise.", method);
+                + "a type that JsonProvider can serialise, or have a registered @ReturnResolverType.", method);
             return false;
         }
 
@@ -343,8 +353,12 @@ public class RouteRegistrationGenerator {
         boolean isResponse = types.isAssignable(returnType, responseTypeElement.asType());
         boolean isAsync = completableFutureTypeElement != null &&
             types.isAssignable(returnType, completableFutureTypeElement.asType());
+        boolean hasCustomResolver = !isResponse && !isAsync && returnType.getKind() != TypeKind.VOID
+            && findCustomResolver(returnType) != null;
+        // Custom resolvers return CompletableFuture<ResponseEntity<?>> so need async registration
+        boolean needsAsyncRegistration = isAsync || hasCustomResolver;
 
-        CodeBlock lambda = createLambda(method, isResponse, isAsync, varName);
+        CodeBlock lambda = createLambda(method, isResponse, needsAsyncRegistration, varName);
 
         CompiledPathTemplate compiled = CompiledPathTemplate.compile(path);
 
@@ -758,22 +772,95 @@ public class RouteRegistrationGenerator {
         }
 
         TypeMirror returnType = method.getReturnType();
-        if (returnType.getKind() == TypeKind.VOID) {
-            b.addStatement("$L.$L($L)", varName, method.getSimpleName(), args.build());
-            b.addStatement("return $T.ok()", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
-        } else if (isAsync) {
-            // For async methods (CompletableFuture), return directly - transport will handle appropriately
-            b.addStatement("return $L.$L($L)", varName, method.getSimpleName(), args.build());
-        } else if (returnsResponse) {
-            b.addStatement("return $L.$L($L)", varName, method.getSimpleName(), args.build());
-        } else {
-            // Non-ResponseEntity return type - wrap in ResponseEntity.ok()
-            b.addStatement("var result = $L.$L($L)", varName, method.getSimpleName(), args.build());
-            b.addStatement("return $T.ok(result)", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
-        }
+        generateReturnDispatch(b, returnType, varName, method.getSimpleName().toString(), args.build());
 
         b.unindent().add("}");
         return b.build();
+    }
+
+    /**
+     * Generates compile-time type-aware return value dispatch code.
+     *
+     * <p>This method analyzes the exact return type and generates the
+     * appropriate resolution code without runtime reflection.</p>
+     */
+    private void generateReturnDispatch(CodeBlock.Builder b, TypeMirror returnType, String varName, String methodName, CodeBlock args) {
+        // void → return ResponseEntity.ok()
+        if (returnType.getKind() == TypeKind.VOID) {
+            b.addStatement("$L.$L($L)", varName, methodName, args);
+            b.addStatement("return $T.ok()", ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
+            return;
+        }
+
+        boolean isAsync = completableFutureTypeElement != null &&
+            types.isAssignable(returnType, completableFutureTypeElement.asType());
+        boolean isResponse = types.isAssignable(returnType, responseTypeElement.asType());
+
+        // Already ResponseEntity — return directly (sync) or pass through (async)
+        if (isResponse) {
+            b.addStatement("return $L.$L($L)", varName, methodName, args);
+            return;
+        }
+
+        // CompletableFuture<T> — need to analyze inner type for proper chaining
+        if (isAsync && returnType instanceof javax.lang.model.type.DeclaredType declared) {
+            List<? extends TypeMirror> typeArgs = declared.getTypeArguments();
+            if (!typeArgs.isEmpty()) {
+                TypeMirror innerType = typeArgs.getFirst();
+                boolean innerIsResponse = types.isAssignable(innerType, responseTypeElement.asType());
+
+                if (innerIsResponse) {
+                    // CompletableFuture<ResponseEntity<T>> — already fully normalized
+                    b.addStatement("return $L.$L($L)", varName, methodName, args);
+                    return;
+                }
+
+                // Check for custom resolver on inner type
+                String customResolver = findCustomResolver(innerType);
+                if (customResolver != null) {
+                    b.addStatement("var __result = $L.$L($L)", varName, methodName, args);
+                    b.addStatement("return __result.thenCompose(result -> new $T().resolve(result, new $T(request)))",
+                        ClassName.bestGuess(customResolver),
+                        ClassName.get("net.magnesiumbackend.core.route.returnresolvers", "ResolverContextImpl"));
+                    return;
+                }
+
+                // CompletableFuture<T> where T is raw — wrap in ResponseEntity.ok()
+                b.addStatement("var __result = $L.$L($L)", varName, methodName, args);
+                b.addStatement("return __result.thenApply(result -> $T.ok(result))",
+                    ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
+                return;
+            }
+
+            // Raw CompletableFuture (no type args) — return directly, transport handles
+            b.addStatement("return $L.$L($L)", varName, methodName, args);
+            return;
+        }
+
+        // Check for custom resolver on sync return type
+        String customResolver = findCustomResolver(returnType);
+        if (customResolver != null) {
+            b.addStatement("var __result = $L.$L($L)", varName, methodName, args);
+            b.addStatement("return new $T().resolve(__result, new $T(request))",
+                ClassName.bestGuess(customResolver),
+                ClassName.get("net.magnesiumbackend.core.route.returnresolvers", "ResolverContextImpl"));
+            return;
+        }
+
+        // Raw sync return — wrap in ResponseEntity.ok()
+        b.addStatement("var __result = $L.$L($L)", varName, methodName, args);
+        b.addStatement("return $T.ok(__result)",
+            ClassName.get("net.magnesiumbackend.core.http.response", "ResponseEntity"));
+    }
+
+    /**
+     * Finds a custom resolver class for the given type, if registered.
+     */
+    private String findCustomResolver(TypeMirror type) {
+        if (type.getKind() != TypeKind.DECLARED) return null;
+        Element el = types.asElement(type);
+        if (!(el instanceof TypeElement te)) return null;
+        return customResolvers.get(te.getQualifiedName().toString());
     }
 
     private enum HeaderParserKind {

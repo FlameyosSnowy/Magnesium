@@ -15,7 +15,7 @@ public final class MagnesiumConfigurationManager {
     private final Map<Class<?>, Object> cache = new HashMap<>();
     private final Map<Class<?>, GeneratedConfigClass> loaders = new HashMap<>();
 
-    private MagnesiumConfigurationManager(@NotNull ConfigSource source) {
+    public MagnesiumConfigurationManager(@NotNull ConfigSource source) {
         this.source = source;
         for (GeneratedConfigClass loader : ServiceLoader.load(GeneratedConfigClass.class)) {
             loaders.put(loader.configType(), loader);

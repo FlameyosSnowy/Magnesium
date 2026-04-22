@@ -198,7 +198,7 @@ public class MagnesiumTestHarness {
         );
         RequestContext requestContext = new RequestContext(request);
         ResponseEntity<?> execute = route.execute(requestContext, List.of(), new ExceptionHandlerRegistry());
-        return new TestResponse(execute.statusCode(), execute.body(), execute.headers());
+        return new TestResponse(execute.statusCode(), null, execute.headers());
     }
 
     /**
