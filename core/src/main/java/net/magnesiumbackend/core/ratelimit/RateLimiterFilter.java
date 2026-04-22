@@ -118,7 +118,7 @@ public final class RateLimiterFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         String key = keyResolver.resolve(ctx);
         RateLimitResult result = limiter.check(key);
 
@@ -133,9 +133,12 @@ public final class RateLimiterFilter implements HttpFilter {
                 .header("Retry-After",           Slice.of(result.resetAfterSeconds()));
         }
 
-        ResponseEntity<?> response = chain.next(ctx);
+        Object response = chain.next(ctx);
+        if (!(response instanceof ResponseEntity<?> entity)) {
+            return response;
+        }
 
-        return response.headers(headers -> {
+        return entity.headers(headers -> {
             headers.set("X-RateLimit-Limit",     Slice.of(result.limit()));
             headers.set("X-RateLimit-Remaining", Slice.of(result.remaining()));
             headers.set("X-RateLimit-Reset",     Slice.of(result.resetAfterSeconds()));

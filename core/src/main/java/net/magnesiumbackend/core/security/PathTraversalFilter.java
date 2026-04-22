@@ -9,9 +9,6 @@ import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
 
-import java.text.Normalizer;
-import java.util.Map;
-
 /**
  * Security filter that detects and blocks path traversal attacks.
  *
@@ -43,7 +40,7 @@ public final class PathTraversalFilter implements HttpFilter {
     private static final int MAX_DECODE_PASSES = 3;
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         // path variables
         for (HttpPathParamIndex.Entry entry : ctx.pathVariables()) {
             if (isDangerous(entry.value())) {

@@ -66,7 +66,7 @@ public final class AuthorizationFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         Principal principal = ctx.principal();
 
         if (requiresAuthentication && principal.isAnonymous()) {

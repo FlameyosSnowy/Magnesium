@@ -6,8 +6,6 @@ import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
 
-import java.util.Map;
-
 /**
  * HTTP filter that adds security headers to responses.
  *
@@ -48,7 +46,7 @@ public final class SecurityHeadersFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         return chain.next(ctx);
     }
 

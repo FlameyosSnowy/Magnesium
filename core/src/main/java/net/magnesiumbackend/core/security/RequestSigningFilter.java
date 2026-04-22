@@ -1,6 +1,5 @@
 package net.magnesiumbackend.core.security;
 
-import net.magnesiumbackend.core.http.response.ResponseEntity;
 import net.magnesiumbackend.core.route.FilterChain;
 import net.magnesiumbackend.core.route.HttpFilter;
 import net.magnesiumbackend.core.route.RequestContext;
@@ -92,7 +91,7 @@ public final class RequestSigningFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
 
         String secret = secretResolver.resolve(ctx);
         if (secret == null) {

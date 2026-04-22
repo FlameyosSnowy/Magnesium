@@ -7,6 +7,7 @@ import net.magnesiumbackend.core.route.RequestContext;
 import net.magnesiumbackend.core.headers.Slice;
 import org.slf4j.MDC;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -78,7 +79,7 @@ public final class CorrelationIdFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
 
         Slice id = ctx.headerRaw(HEADER);
 

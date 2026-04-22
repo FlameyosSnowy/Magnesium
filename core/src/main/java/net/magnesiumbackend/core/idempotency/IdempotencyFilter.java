@@ -66,7 +66,7 @@ public final class IdempotencyFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         // Only meaningful for mutating methods
         HttpMethod method = ctx.request().method();
         if (method == HttpMethod.GET || method == HttpMethod.HEAD) {
@@ -92,13 +92,16 @@ public final class IdempotencyFilter implements HttpFilter {
             return replayed;
         }
 
-        ResponseEntity<?> response = chain.next(ctx);
+        Object response = chain.next(ctx);
+        if (!(response instanceof ResponseEntity<?> entity)) {
+            return response;
+        }
 
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+        if (entity.statusCode() >= 200 && entity.statusCode() < 300) {
             store.store(storeKey, new IdempotencyStore.StoredResponse<>(
-                response.statusCode(),
-                response.body(),
-                response.headers()
+                entity.statusCode(),
+                entity.body(),
+                entity.headers()
             ), ttlHours);
         }
 

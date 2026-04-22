@@ -54,7 +54,7 @@ public final class AuthenticationFilter implements HttpFilter {
     }
 
     @Override
-    public ResponseEntity<?> handle(RequestContext ctx, FilterChain chain) {
+    public Object handle(RequestContext ctx, FilterChain chain) {
         for (AuthenticationProvider provider : providers) {
             try {
                 var principal = provider.authenticate(ctx);
