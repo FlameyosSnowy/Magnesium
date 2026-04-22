@@ -1,6 +1,7 @@
 package net.magnesiumbackend.transport.httpserver;
 
 import net.magnesiumbackend.core.MagnesiumApplication;
+import net.magnesiumbackend.core.MagnesiumRuntime;
 import net.magnesiumbackend.core.headers.HttpPathParamIndex;
 import net.magnesiumbackend.core.http.MagnesiumHttpServer;
 import net.magnesiumbackend.core.http.response.ResponseEntity;
@@ -27,7 +28,7 @@ class HttpServerPathVariablesTest {
 
     private static final int TEST_PORT = 0; // Use any available port
     private HttpServerMagnesiumTransport transport;
-    private MagnesiumApplication application;
+    private MagnesiumRuntime application;
     private int actualPort;
     private HttpClient httpClient;
 
@@ -62,7 +63,7 @@ class HttpServerPathVariablesTest {
         transport = new HttpServerMagnesiumTransport();
 
         // Start in a separate thread
-        Thread serverThread = new Thread(() -> transport.bind(0, application, application.httpServer().routes()));
+        Thread serverThread = new Thread(() -> transport.bind(0, application, application.router().routes()));
         serverThread.setDaemon(true);
         serverThread.start();
 

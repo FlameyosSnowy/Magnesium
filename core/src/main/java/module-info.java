@@ -12,6 +12,7 @@ module core {
     uses net.magnesiumbackend.core.annotations.service.GeneratedServiceClass;
     uses net.magnesiumbackend.core.json.JsonProvider;
     uses net.magnesiumbackend.core.extensions.MagnesiumExtension;
+    uses net.magnesiumbackend.core.health.HealthIndicatorContributor;
 
     requires io.github.flameyossnowy.velocis;
     requires org.jetbrains.annotations;
@@ -42,6 +43,7 @@ module core {
     exports net.magnesiumbackend.core.auth;
     exports net.magnesiumbackend.core.services;
     exports net.magnesiumbackend.core.route;
+    exports net.magnesiumbackend.core.route.returnresolvers;
     exports net.magnesiumbackend.core.http.messages;
     exports net.magnesiumbackend.core.security;
     exports net.magnesiumbackend.core.headers;
@@ -55,4 +57,42 @@ module core {
     exports net.magnesiumbackend.core.runtime.lifecycle;
     exports net.magnesiumbackend.core.runtime.config;
     exports net.magnesiumbackend.core.runtime.engine;
+    exports net.magnesiumbackend.core.extensions;
+    exports net.magnesiumbackend.core.health;
+    exports net.magnesiumbackend.core.lifecycle;
+
+    opens net.magnesiumbackend.core;
+    opens net.magnesiumbackend.core.annotations;
+    opens net.magnesiumbackend.core.annotations.service;
+    opens net.magnesiumbackend.core.annotations.enums;
+    opens net.magnesiumbackend.core.base;
+    opens net.magnesiumbackend.core.event;
+    opens net.magnesiumbackend.core.exceptions;
+    opens net.magnesiumbackend.core.http;
+    opens net.magnesiumbackend.core.http.exceptions;
+    opens net.magnesiumbackend.core.http.websocket;
+    opens net.magnesiumbackend.core.json;
+    opens net.magnesiumbackend.core.config;
+    opens net.magnesiumbackend.core.meta;
+    opens net.magnesiumbackend.core.auth;
+    opens net.magnesiumbackend.core.services;
+    opens net.magnesiumbackend.core.route;
+    opens net.magnesiumbackend.core.http.messages;
+    opens net.magnesiumbackend.core.security;
+    opens net.magnesiumbackend.core.headers;
+    opens net.magnesiumbackend.core.utils;
+    opens net.magnesiumbackend.core.http.response;
+    opens net.magnesiumbackend.core.cancellation;
+    opens net.magnesiumbackend.core.backpressure;
+    opens net.magnesiumbackend.core.reload;
+    opens net.magnesiumbackend.core.runtime.kernel;
+    opens net.magnesiumbackend.core.runtime.input;
+    opens net.magnesiumbackend.core.runtime.lifecycle;
+    opens net.magnesiumbackend.core.runtime.config;
+    opens net.magnesiumbackend.core.runtime.engine;
+    opens net.magnesiumbackend.core.extensions;
+    opens net.magnesiumbackend.core.health;
+    opens net.magnesiumbackend.core.lifecycle;
+    exports net.magnesiumbackend.core.ratelimit;
+    exports net.magnesiumbackend.core.circuit;
 }
