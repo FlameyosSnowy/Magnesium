@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>net.magnesiumbackend</groupId>
+        <artifactId>Magnesium</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>magnesium-actuator</artifactId>
+    <name>Magnesium Actuator</name>
+    <description>Production-ready health checks and metrics for Magnesium applications</description>
+
+    <dependencies>
+        <!-- Core -->
+        <dependency>
+            <groupId>net.magnesiumbackend</groupId>
+            <artifactId>core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Optional: Redis health indicator -->
+        <dependency>
+            <groupId>net.magnesiumbackend</groupId>
+            <artifactId>magnesium-data-redis</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Optional: RabbitMQ health indicator -->
+        <dependency>
+            <groupId>net.magnesiumbackend</groupId>
+            <artifactId>magnesium-amqp-rabbitmq</artifactId>
+            <version>${project.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+        </dependency>
+    </dependencies>
+</project>
