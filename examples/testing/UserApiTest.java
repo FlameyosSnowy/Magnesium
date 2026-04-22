@@ -39,7 +39,7 @@ class UserApiTest {
             runtime.router()
                 .get("/health", ctx -> Response.ok(Map.of("status", "up")))
 
-                .get("/users/:id", ctx -> {
+                .get("/users/{id}", ctx -> {
                     User user = userService.findById(ctx.pathParam("id"));
                     if (user == null) {
                         return Response.status(404).body(Map.of("error", "User not found"));
@@ -54,7 +54,7 @@ class UserApiTest {
                     return Response.status(201).body(user);
                 })
 
-                .delete("/users/:id", ctx -> {
+                .delete("/users/{id}", ctx -> {
                     userService.delete(ctx.pathParam("id"));
                     return Response.noContent();
                 });
